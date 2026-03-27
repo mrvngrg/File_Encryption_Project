@@ -1,0 +1,2 @@
+To compile:
+gcc encryption.c -o encryption -lssl -lcrypto
