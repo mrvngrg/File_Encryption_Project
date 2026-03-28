@@ -1,52 +1,66 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-void encrypt_file(char *infile, char *outfile, unsigned char* key, unsigned char* iv){
-    FILE *in = fopen(infile, "rb");
-    if (in == NULL){
-        printf("cannot open in file"); 
-    }
-
-    FILE *out = fopen(outfile, "wb");
-    if (out == NULL){
-        printf("cannot open out file"); 
-    }
-
-    fwrite(iv, 1 ,16, out); // for decryption
+void encrypt_file(char *file, unsigned char* key, unsigned char* iv){
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv);
 
-
-    unsigned char inbuf[1024];
-    unsigned char outbuf[1040];
-    int inlen, outlen;
-
-    while ((inlen = fread(inbuf, 1 ,sizeof(inbuf), in)) > 0){
-        EVP_EncryptUpdate(ctx, outbuf, &outlen, inbuf, inlen);
-        fwrite(outbuf, 1,outlen, out);
+    FILE *in = fopen(file, "rb");
+    if (in == NULL){
+        printf("cannot open %s file", file); 
     }
-    
-    EVP_EncryptFinal_ex(ctx, outbuf, &outlen);
-    fwrite(outbuf,1,outlen,out);
-    remove(infile);
-    
-    EVP_CIPHER_CTX_free(ctx);
+
+    char *buffer = NULL; 
+    size_t size = 0; 
+    size_t capacity = 0;
+
+    char temp[4096];
+    size_t bytes;
+
+    int outlen;
+    while ((bytes = fread(temp, 1, sizeof(temp), in)) > 0) { 
+
+        if (size + bytes + 16 > capacity) {
+            capacity = (capacity + bytes) * 2; 
+            char *tmp = realloc(buffer, capacity);
+            
+            if (tmp == NULL) { 
+                /* handle error */ 
+            }
+            buffer = tmp; 
+        }
+
+        EVP_EncryptUpdate(ctx, buffer + size, &outlen, temp, bytes);
+        size += outlen; 
+    }
+
     fclose(in);
+
+    FILE *out = fopen(file, "wb");
+    if (out == NULL){
+        printf("cannot open %s file", file); 
+    }
+
+    fwrite(iv, 1 ,16, out);
+
+    EVP_EncryptFinal_ex(ctx, buffer + size, &outlen);
+    fwrite(buffer, 1, size + outlen, out);
+    
+    // TODO: schould rename the file to .locked
+
+    free(buffer);
+    EVP_CIPHER_CTX_free(ctx);
     fclose(out);
 }
 
-void decrypt_file(char *infile, char *outfile, unsigned char* key){
-    FILE *in = fopen(infile, "rb");
+void decrypt_file(char *file, unsigned char* key){
+    FILE *in = fopen(file, "rb");
     if (in == NULL){
         printf("cannot locked file"); 
-    }
-
-    FILE *out = fopen(outfile, "wb");
-    if (out == NULL){
-        printf("cannot recreate original file"); 
     }
 
     unsigned char iv[16];
@@ -55,22 +69,44 @@ void decrypt_file(char *infile, char *outfile, unsigned char* key){
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv);
 
+    char *buffer = NULL; 
+    size_t size = 0; 
+    size_t capacity = 0;
 
-    unsigned char inbuf[1040];
-    unsigned char outbuf[1040];
-    int inlen, outlen;
+    char temp[4096];
+    size_t bytes;
 
-    while ((inlen = fread(inbuf, 1 ,sizeof(inbuf), in)) > 0){
-        EVP_DecryptUpdate(ctx, outbuf, &outlen, inbuf, inlen);
-        fwrite(outbuf, 1,outlen, out);
+    int outlen;
+    while ((bytes = fread(temp, 1, sizeof(temp), in)) > 0) { 
+
+        if (size + bytes + 16 > capacity) {
+            capacity = (capacity + bytes) * 2; 
+            char *tmp = realloc(buffer, capacity);
+            
+            if (tmp == NULL) { 
+                /* handle error */ 
+            }
+            buffer = tmp; 
+        }
+
+        EVP_DecryptUpdate(ctx, buffer + size, &outlen, temp, bytes);
+        size += outlen; 
+    }
+
+    fclose(in);
+
+    FILE *out = fopen(file, "wb");
+    if (out == NULL){
+        printf("cannot open %s file", file); 
     }
     
-    EVP_DecryptFinal_ex(ctx, outbuf, &outlen);
-    fwrite(outbuf,1,outlen,out);
-    remove(infile);
+    EVP_DecryptFinal_ex(ctx, buffer, &outlen);
+    fwrite(buffer, 1, size + outlen, out);
     
+    // TODO: schould rename the file (remove .locked)
+
+    free(buffer);
     EVP_CIPHER_CTX_free(ctx);
-    fclose(in);
     fclose(out);
 }
 
@@ -81,12 +117,10 @@ int main()
     RAND_bytes(iv, sizeof(iv));
     unsigned char key[16] = "qwertyuiopasdfgh";
 
-    char *orfile = "sample.pdf";
-    char *lockfile = "sample.pdf.locked";
-    char *outfile = "sample.pdf";
+    char *file = "sample.pdf";
 
-    //encrypt_file(orfile, lockfile, key, iv);
-    decrypt_file(lockfile, outfile, key);
+    encrypt_file(file, key, iv);
+    //decrypt_file(file, key);
 
     return 0;
 }
