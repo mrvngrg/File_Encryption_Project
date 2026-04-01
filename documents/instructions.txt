@@ -3,4 +3,4 @@ sudo apt install libssl-dev
 
 
 To compile:
-gcc encryption.c -o encryption -lssl -lcrypto
+gcc encryption.c queue.c -o encryption -lssl -lcrypto
