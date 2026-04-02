@@ -13,8 +13,9 @@ typedef struct Queue {
 
 void initializeQueue(Queue *q);
 
-void enqueue(Queue *q, char *filepath);
+void enqueue(Queue *q, const char *filepath);
 
 char *dequeue(Queue *q);
 
+char *get_element(Queue *q);
 #endif

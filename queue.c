@@ -1,21 +1,27 @@
-#include "queue.h"
+#include "headers/queue.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void initializeQueue(Queue *q) {
     q->head = NULL;
     q->tail = NULL;
 }
 
-void enqueue(Queue* q, char *path) {
-    Node* newNode = malloc(sizeof(Node));
-
+void enqueue(Queue *q, const char *path) {
+    Node *newNode = malloc(sizeof(Node));
     if (newNode == NULL) {
         printf("Memory allocation failed\n");
         return;
     }
 
-    newNode->data = path;
+    newNode->data = strdup(path);
+    if (newNode->data == NULL) {
+        free(newNode);
+        printf("Memory allocation failed\n");
+        return;
+    }
+
     newNode->next = NULL;
 
     if (q->tail == NULL) {
@@ -28,9 +34,9 @@ void enqueue(Queue* q, char *path) {
 }
 
 char *dequeue(Queue *q) {
-    if (q -> head == NULL) {
-        printf("queue is already empty");
-    } 
+    if (q->head == NULL) {
+        return NULL;
+    }
 
     Node *temp = q->head;
     char *data = temp->data;
@@ -40,5 +46,14 @@ char *dequeue(Queue *q) {
     if (q->head == NULL) {
         q->tail = NULL;
     }
+
     free(temp);
+    return data;
+}
+
+char *get_element(Queue *q) {
+    if (q->head == NULL) {
+        return NULL;
+    }
+    return q->head->data;
 }
