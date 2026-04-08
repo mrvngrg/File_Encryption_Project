@@ -39,7 +39,9 @@ void traverse(const char *path) {
             printf("Directory: %s\n", fullPath);
             traverse(fullPath);  // recursive call
         } else {
-            printf("File: %s\n", fullPath);
+            //printf("File: %s\n", fullPath);
+            // TODO: Skip problematic file 
+            
             enqueue(&queue, fullPath);
         }
     }
@@ -50,6 +52,8 @@ void traverse(const char *path) {
 int main() {
     //RAND_bytes(key, sizeof(key));
     initializeQueue(&queue);
+
+    //should start client
 
     traverse("/home/drikson/Documents/DPI/Lectures"); //change
 

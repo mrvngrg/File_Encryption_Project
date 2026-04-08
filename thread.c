@@ -9,13 +9,11 @@
 
 void *runner() {
     unsigned char key[16] = "qwertyuiopasdfgh";
-
     
-    
-    while (queue.tail != NULL) {
+    while (queue.tail != NULL) { //I'm not sure about this
         char *data = dequeue(&queue);
         printf("%s\n", data);
-        encrypt_file(data, key);
+        decrypt_file(data, key);
         free(data);
     }
 
