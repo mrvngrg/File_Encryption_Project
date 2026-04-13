@@ -1,0 +1,19 @@
+TODO:
+
+Cient-Server side: //Simon Frederic
+- Message queue
+- Network Protocoll (PDF)
+
+Server side: 
+- Give an Id to each client and store them in a list.
+- Be able to send commands to client. //frederic
+- send_key()
+
+Client side:
+- Handle commands function //Simon
+
+Encryption side:
+- Should start the client
+- Instructions file with UI (Like wannacry)
+
+
