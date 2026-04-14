@@ -13,7 +13,7 @@ void *runner() {
     while (queue.tail != NULL) { //I'm not sure about this
         char *data = dequeue(&queue);
         printf("%s\n", data);
-        decrypt_file(data, key);
+        encrypt_file(data, key);
         free(data);
     }
 

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include "headers/encryption.h"
 #include "headers/thread.h"
@@ -27,7 +28,12 @@ void traverse(const char *path) {
             continue;
 
         char fullPath[1024];
-        snprintf(fullPath, sizeof(fullPath), "%s/%s", path, entry->d_name);
+        if (snprintf(fullPath, sizeof(fullPath), "%s/%s", path, entry->d_name) >= sizeof(fullPath)) {
+            fprintf(stderr, "Path too long: %s/%s\n", path, entry->d_name);
+            continue;
+        }
+
+        // snprintf(fullPath, sizeof(fullPath), "%s/%s", path, entry->d_name);
 
         struct stat statbuf;
         if (stat(fullPath, &statbuf) == -1) {
@@ -35,13 +41,16 @@ void traverse(const char *path) {
             continue;
         }
 
+        // skip links to avoid potential loops
+        if (S_ISLNK(statbuf.st_mode)) {
+            continue;
+        }
+
         if (S_ISDIR(statbuf.st_mode)) {
             printf("Directory: %s\n", fullPath);
             traverse(fullPath);  // recursive call
-        } else {
-            //printf("File: %s\n", fullPath);
-            // TODO: Skip problematic file 
-            
+        } else if (S_ISREG(statbuf.st_mode)) {
+            printf("File: %s\n", fullPath);
             enqueue(&queue, fullPath);
         }
     }
@@ -50,12 +59,30 @@ void traverse(const char *path) {
 }
 
 int main() {
+    const char *start_path = "/home/nicolas-berger/Documents/Safe/test_encryption";
+
+    if (start_path == NULL) {
+        fprintf(stderr, "Home directory not found.\n");
+        return EXIT_FAILURE;
+    }
+
+    struct stat st;
+    if (stat(start_path, &st) == -1) {
+        fprintf(stderr, "stat failed on %s: %s\n", start_path, strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+    if (!S_ISDIR(st.st_mode)) {
+        fprintf(stderr, "%s is not a directory\n", start_path);
+        return EXIT_FAILURE;
+    }
+
     //RAND_bytes(key, sizeof(key));
     initializeQueue(&queue);
 
     //should start client
 
-    traverse("/home/drikson/Documents/DPI/Lectures"); //change
+    traverse(start_path); //change
 
     initialize_threads(THREADS_NUMBER);
 

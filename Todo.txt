@@ -16,4 +16,7 @@ Encryption side:
 - Should start the client
 - Instructions file with UI (Like wannacry)
 
+Bugs: 
+- When decrypting first files get locked perma.
+- .txt files cannot be encrypted
 
