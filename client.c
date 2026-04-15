@@ -5,7 +5,24 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <stdlib.h>
 #define PORT 8080
+
+void *commands_listener(void *arg) {
+    int client_fd = *(int *)arg;
+    free(arg);
+
+    char buffer[1024];
+
+    while (true){
+        int valread = read(client_fd, buffer, sizeof(buffer) -1);
+        if (valread > 0 ) {
+            buffer[valread] = '\0';
+            printf("%s", buffer);
+        }
+    }
+}
 
 int main() {
     int status;
@@ -13,7 +30,7 @@ int main() {
     int client_fd;
 
     struct sockaddr_in serv_addr;
-    char buffer[1024];
+
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("socket creation failed\n");
         return -1;
@@ -33,18 +50,10 @@ int main() {
     char* hey = "first contact";
     send(client_fd, hey, strlen(hey), 0);
 
-    bool wow = true;
-    while (1){
+    int *clientfd = malloc(sizeof(int));
+    *clientfd = client_fd;
 
-        if (wow) {
-        printf("here\n");
-        }
-        wow = false;
-
-        int valread = read(client_fd, buffer, sizeof(buffer) -1);
-        if (valread > 0 ) {
-            buffer[valread] = '\0';
-            printf("%s", buffer);
-        }
-    }
+    pthread_t command_tid;
+    pthread_create(&command_tid, NULL, commands_listener, clientfd);
+    pthread_join(command_tid, NULL);
 }
