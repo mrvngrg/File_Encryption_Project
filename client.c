@@ -1,8 +1,10 @@
+#include <stdbool.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <netinet/in.h>
 #define PORT 8080
 
 int main() {
@@ -11,7 +13,7 @@ int main() {
     int client_fd;
 
     struct sockaddr_in serv_addr;
-    char buffer[1024] = {0};
+    char buffer[1024];
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("socket creation failed\n");
         return -1;
@@ -28,11 +30,21 @@ int main() {
         printf("connect failed\n");
         return -1;
     }
-    char* hey = "hey";
+    char* hey = "first contact";
     send(client_fd, hey, strlen(hey), 0);
-    printf("send hey\n");
-    valread = read(client_fd, buffer, 1024 -1);
 
-    close (client_fd);
-    return 0;
+    bool wow = true;
+    while (1){
+
+        if (wow) {
+        printf("here\n");
+        }
+        wow = false;
+
+        int valread = read(client_fd, buffer, sizeof(buffer) -1);
+        if (valread > 0 ) {
+            buffer[valread] = '\0';
+            printf("%s", buffer);
+        }
+    }
 }
