@@ -59,7 +59,8 @@ void traverse(const char *path) {
 }
 
 int main() {
-    const char *start_path = "/home/nicolas-berger/Documents/Safe/test_encryption";
+    //const char *start_path = "/home/nicolas-berger/Documents/Safe/test_encryption";
+    const char *start_path = "/home/drikson/Documents/OS/test";
 
     if (start_path == NULL) {
         fprintf(stderr, "Home directory not found.\n");

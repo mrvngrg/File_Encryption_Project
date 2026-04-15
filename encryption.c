@@ -12,7 +12,9 @@ void encrypt_file(char *file, unsigned char* key) {
 
     FILE *in = fopen(file, "rb");
     if (in == NULL){
-        printf("cannot open %s file", file); 
+        printf("cannot open %s file", file);
+        EVP_CIPHER_CTX_free(ctx);
+        return;
     }
 
     char *buffer = NULL; 
@@ -40,6 +42,17 @@ void encrypt_file(char *file, unsigned char* key) {
     }
 
     fclose(in);
+
+    if (buffer == NULL) {
+        buffer = malloc(EVP_MAX_BLOCK_LENGTH);
+        if (buffer == NULL) {
+            fprintf(stderr, "malloc failed\n");
+            fclose(in);
+            EVP_CIPHER_CTX_free(ctx);
+            return;
+        }
+        capacity = EVP_MAX_BLOCK_LENGTH;
+    }
 
     FILE *out = fopen(file, "wb");
     if (out == NULL){
@@ -98,6 +111,17 @@ void decrypt_file(char *file, unsigned char* key) {
     }
 
     fclose(in);
+
+    if (buffer == NULL) {
+        buffer = malloc(EVP_MAX_BLOCK_LENGTH);
+        if (buffer == NULL) {
+            fprintf(stderr, "malloc failed\n");
+            fclose(in);
+            EVP_CIPHER_CTX_free(ctx);
+            return;
+        }
+        capacity = EVP_MAX_BLOCK_LENGTH;
+    }
 
     FILE *out = fopen(file, "wb");
     if (out == NULL){
