@@ -14,7 +14,31 @@ Client side:
 
 Encryption side:
 - Should start the client
-- Instructions file with UI (Like wannacry)
+- Instructions file with UI (Like wannacry) simple html file 
+
+Other: 
+- Find a way to hide executable (WinRARE on windows but of linux IDK)
+
+
+
+
+Network Protocoll:
+
+lists of commands:
+
+list //print all clients connected with socket number and ip adress, and maybe other information if time
+encrypt [all] [path] key  //encrypt all files
+decrypt [all] [path] key
+stop //stop the programm (IF TIME) 
+kill //kill the process 
+
+
+Other Idea Ultimate Malware have access to camera and have key logger
+
+
+
+
+
 
 Bugs: 
 - When decrypting first files get locked perma.
