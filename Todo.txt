@@ -19,9 +19,6 @@ Encryption side:
 Other: 
 - Find a way to hide executable (WinRARE on windows but of linux IDK)
 
-
-
-
 Network Protocoll:
 
 lists of commands:
@@ -32,15 +29,12 @@ decrypt [all] [path] key
 stop //stop the programm (IF TIME) 
 kill //kill the process 
 
-
-Other Idea Ultimate Malware have access to camera and have key logger
-
-
-
-
-
-
 Bugs: 
 - When decrypting first files get locked perma.
 - .txt files cannot be encrypted
+
+error by decrypting: (happend only one time)
+free(): unaligned chunk detected in tcache 2
+[1]    521873 IOT instruction (core dumped)  ./encryption
+
 
