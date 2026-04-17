@@ -7,13 +7,13 @@
 #include "headers/encryption.h"
 #include "headers/globals.h"
 
-void *runner() {
+void *runner(void *arg) {
     unsigned char key[16] = "qwertyuiopasdfgh";
     
     while (queue.tail != NULL) { //I'm not sure about this
         char *data = dequeue(&queue);
         printf("%s\n", data);
-        encrypt_file(data, key);
+        decrypt_file(data, key);
         free(data);
     }
 

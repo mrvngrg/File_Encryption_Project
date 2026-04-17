@@ -1,3 +1,3 @@
 void initialize_threads(int n);
 
-void *runner();
+void *runner(void *arg);

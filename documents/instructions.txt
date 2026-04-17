@@ -1,5 +1,6 @@
 Dependencies : 
 sudo apt install libssl-dev
+sudo pacman -S openssl #arch 
 
 
 To compile:
