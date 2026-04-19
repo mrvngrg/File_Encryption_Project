@@ -15,6 +15,14 @@
 struct sockaddr_in address;
 socklen_t addrlen = sizeof(address);
 
+void get_list() {
+    Node *curr = socket_queue.head;
+        while (curr != NULL) {
+            printf("socket_id : %d\n",curr->socketfd);
+            curr = curr->next;
+        }
+}
+
 void *connection_listener(void *arg) {
     int server_socket = *(int *)arg;
     free(arg);
@@ -41,17 +49,32 @@ void *connection_listener(void *arg) {
 
 void *commands_listener(void *arg) {
     char command[1024];
-
     while (true) {
         fgets(command, sizeof(command), stdin);
 
-        pthread_mutex_lock(&socket_queue.lock);
-        Node *curr = socket_queue.head;
-        while (curr != NULL) {
-            send(curr->socketfd, command, strlen(command), 0);
-            curr = curr->next;
+        char *arguments[10];
+        int i = 0;
+
+        char *token = strtok(command, ";");
+
+        while (token != NULL) {
+            arguments[i] = token;
+            i++;
+
+            token = strtok(NULL, ";");
         }
-        pthread_mutex_unlock(&socket_queue.lock);
+
+        if (strcmp(arguments[0], "list") == 0) {
+            get_list();
+        } else {
+            pthread_mutex_lock(&socket_queue.lock);
+            Node *curr = socket_queue.head;
+            while (curr != NULL) {
+                send(curr->socketfd, command, strlen(command), 0);
+                curr = curr->next;
+            }
+            pthread_mutex_unlock(&socket_queue.lock);
+        }
     } 
 }
 
