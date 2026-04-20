@@ -10,9 +10,13 @@
 void *runner(void *arg) {
     unsigned char key[16] = "qwertyuiopasdfgh";
     
-    while (queue.tail != NULL) { //I'm not sure about this
+    while (1) {
         char *data = dequeue(&queue);
-        printf("%s\n", data);
+        if (data == NULL) {
+            break;
+        }
+
+        printf("Processing: %s\n", data);
         decrypt_file(data, key);
         free(data);
     }
@@ -21,17 +25,30 @@ void *runner(void *arg) {
 }
 
 void initialize_threads(int n) {
+    if (n <= 0) {
+        fprintf(stderr, "Invalid thread count\n");
+        return;
+    }
 
     pthread_t tids[n];
     pthread_attr_t attr;
     pthread_attr_init(&attr);
 
+    bool created[n];
+
     for (int i = 0; i < n; i++) {
-        pthread_create(&tids[i], &attr, runner, NULL);
+        created[i] = false;
+        int create = pthread_create(&tids[i], &attr, runner, NULL);
+        if (create != 0) {
+            fprintf(stderr, "error\n");
+        } else {
+            created[i] = true;
+        }
     }
 
     for (int i = 0; i < n; i++) {
-        pthread_join(tids[i], NULL);
+        if (created[i]) {
+            pthread_join(tids[i], NULL);
+        }
     }
-
 }

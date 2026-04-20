@@ -57,6 +57,9 @@ void encrypt_file(char *file, unsigned char* key) {
     FILE *out = fopen(file, "wb");
     if (out == NULL){
         printf("cannot open %s file", file); 
+        free(buffer);
+        EVP_CIPHER_CTX_free(ctx);
+        return;
     }
 
     fwrite(iv, 1 ,16, out);
