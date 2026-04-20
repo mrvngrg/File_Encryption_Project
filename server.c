@@ -17,10 +17,10 @@ socklen_t addrlen = sizeof(address);
 
 void get_list() {
     Node *curr = socket_queue.head;
-        while (curr != NULL) {
-            printf("socket_id : %d\n",curr->socketfd);
-            curr = curr->next;
-        }
+    while (curr != NULL) {
+        printf("socket_id : %d\n",curr->socketfd);
+        curr = curr->next;
+    }
 }
 
 void *connection_listener(void *arg) {

@@ -3,6 +3,7 @@
 
 #include "queue.h"
 
-extern Queue queue;
+extern Queue encrypt_queue;
+extern Queue decrypt_queue;
 
 #endif

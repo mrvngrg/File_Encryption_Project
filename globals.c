@@ -1,3 +1,4 @@
 #include "headers/globals.h"
 
-Queue queue;
+Queue encrypt_queue;
+Queue decrypt_queue;
