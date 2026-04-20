@@ -1,12 +1,12 @@
 TODO:
 
-Cient-Server side: //Simon Frederic
+Cient-Server side:
 - Message queue
 - Network Protocoll (PDF)
 
 Server side: 
 - Give an Id to each client and store them in a list.
-- Be able to send commands to client. //frederic
+- Be able to send commands to client.
 - send_key()
 
 Client side:
@@ -36,5 +36,9 @@ Bugs:
 error by decrypting: (happend only one time)
 free(): unaligned chunk detected in tcache 2
 [1]    521873 IOT instruction (core dumped)  ./encryption
+
+cannot locked filecannot locked filecannot locked file/home/drikson/Documents/os/test/10GB/Spetsnaz_MKV_thumb.jpg
+[1]    542670 segmentation fault (core dumped)  ./encryption
+
 
 

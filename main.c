@@ -83,9 +83,9 @@ int main() {
     initializeQueue(&encrypt_queue);
     initializeQueue(&decrypt_queue);
 
-    startclient();
-
     traverse(start_path);
+
+    startclient();
 
     return 0; 
 }
