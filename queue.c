@@ -57,3 +57,47 @@ char *get_element(Queue *q) {
     }
     return q->head->data;
 }
+
+void remove_by_value(Queue *q, const char *value) {
+    Node *curr = q->head;
+    Node *prev = NULL;
+
+    while (curr != NULL) {
+        if (strcmp(curr->data, value) == 0) {
+            if (prev == NULL) q->head = curr->next;
+            else prev->next = curr->next;
+            if (curr == q->tail) q->tail = prev;
+            free(curr->data);
+            free(curr);
+            break;
+        }
+        prev = curr;
+        curr = curr->next;
+    }
+}
+
+void print_queue(Queue *q) {
+    if (q == NULL) {
+        printf("Queue is NULL\n");
+        return;
+    }
+
+    Node *current = q->head;
+
+    if (current == NULL) {
+        printf("Queue is empty\n");
+        return;
+    }
+
+    printf("Queue contents:\n");
+
+    while (current != NULL) {
+        printf("%s\n", current->data);
+        current = current->next;
+    }
+}
+
+char *peek(Queue *q) {
+    char *data = q->head ? q->head->data : NULL;
+    return data;
+}

@@ -3,7 +3,7 @@
 #include <openssl/rand.h>
 #include <string.h>
 
-void encrypt_file(char *file, unsigned char* key) {
+char *encrypt_file(char *file, unsigned char* key) {
     unsigned char iv[16];
     RAND_bytes(iv, sizeof(iv));
 
@@ -14,7 +14,7 @@ void encrypt_file(char *file, unsigned char* key) {
     if (in == NULL){
         printf("cannot open %s file", file);
         EVP_CIPHER_CTX_free(ctx);
-        return;
+        return NULL;
     }
 
     char *buffer = NULL; 
@@ -49,7 +49,7 @@ void encrypt_file(char *file, unsigned char* key) {
             fprintf(stderr, "malloc failed\n");
             fclose(in);
             EVP_CIPHER_CTX_free(ctx);
-            return;
+            return NULL;
         }
         capacity = EVP_MAX_BLOCK_LENGTH;
     }
@@ -59,7 +59,7 @@ void encrypt_file(char *file, unsigned char* key) {
         printf("cannot open %s file", file); 
         free(buffer);
         EVP_CIPHER_CTX_free(ctx);
-        return;
+        return NULL;
     }
 
     fwrite(iv, 1 ,16, out);
@@ -71,12 +71,13 @@ void encrypt_file(char *file, unsigned char* key) {
     EVP_CIPHER_CTX_free(ctx);
     fclose(out);
 
-    char new_name[2048];
-    snprintf(new_name, sizeof(new_name), "%s.locked", file);
+    char *new_name = malloc(strlen(file) + 8);
+    snprintf(new_name, strlen(file) + 8, "%s.locked", file);
     rename(file, new_name);
+    return new_name;
 }
 
-void decrypt_file(char *file, unsigned char* key) {
+char *decrypt_file(char *file, unsigned char* key) {
     FILE *in = fopen(file, "rb");
     if (in == NULL){
         printf("cannot locked file"); 
@@ -120,7 +121,7 @@ void decrypt_file(char *file, unsigned char* key) {
             fprintf(stderr, "malloc failed\n");
             fclose(in);
             EVP_CIPHER_CTX_free(ctx);
-            return;
+            return NULL;
         }
         capacity = EVP_MAX_BLOCK_LENGTH;
     }
@@ -137,13 +138,16 @@ void decrypt_file(char *file, unsigned char* key) {
     EVP_CIPHER_CTX_free(ctx);
     fclose(out);
 
-    char new_name[2048];
-    strncpy(new_name, file, sizeof(new_name) - 1);
-    new_name[sizeof(new_name) - 1] = '\0';
-    
+    char *new_name = malloc(strlen(file) + 1); // +1 for null terminator
+    if (new_name == NULL) return NULL;
+
+    strcpy(new_name, file);
+
     size_t len = strlen(new_name);
     if (len > 7 && strcmp(new_name + len - 7, ".locked") == 0) {
         new_name[len - 7] = '\0';
         rename(file, new_name);
     }
+
+    return new_name;
 }

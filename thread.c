@@ -3,34 +3,38 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <string.h>
 #include "headers/thread.h"
 #include "headers/encryption.h"
 #include "headers/globals.h"
-#include <time.h>
 
 unsigned char key[16] = "qwertyuiopasdfgh";
 
 void start_encrypt() {
-    while (true) { //I'm not sure about this
-        char *data = dequeue(&encrypt_queue);
-        if (data == NULL) {
-            break;
-        }
-        printf("TID: %lu: %s\n", (unsigned long)pthread_self(), data);
-        encrypt_file(data, key);
+    while (true) {
+        char *head = peek(&queue); //race condition maybe peek_and_dequeue.
+        if (head == NULL || strcmp(head, "END_ENCRYPT") == 0) break;
+        
+        char *data = dequeue(&queue);
+        printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
+        char *filename = encrypt_file(data, key);
+        enqueue(&queue, filename);
         free(data);
+        free(filename);
     }
 }
 
 void start_decrypt() {
-    while (true) { //I'm not sure about this
-        char *data = dequeue(&decrypt_queue);
-        if (data == NULL) {
-            break;
-        }
+    while (true) {
+        char *head = peek(&queue);
+        if (head == NULL || strcmp(head, "END_DECRYPT") == 0) break;
+
+        char *data = dequeue(&queue);
         printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
-        decrypt_file(data, key);
+        char *filename = decrypt_file(data, key);
+        enqueue(&queue, filename);
         free(data);
+        free(filename);
     }
 }
 
@@ -48,6 +52,18 @@ void initialize_threads(int n, bool encrypt) {
     pthread_t tids[n];
     pthread_attr_t attr;
     pthread_attr_init(&attr);
+
+    if (encrypt) {
+        remove_by_value(&queue, "END_DECRYPT");
+        remove_by_value(&queue, "END_ENCRYPT");
+        enqueue(&queue, "END_ENCRYPT");
+    } else {
+        remove_by_value(&queue, "END_ENCRYPT");
+        remove_by_value(&queue, "END_DECRYPT");
+        enqueue(&queue, "END_DECRYPT");
+    }
+
+    //print_queue(&queue);
 
     bool* encrypt_ptr = malloc(sizeof(bool));
     if (!encrypt_ptr) {

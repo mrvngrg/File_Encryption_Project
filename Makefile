@@ -6,6 +6,3 @@ encryption: main.c queue.c thread.c globals.c encryption.c client.c
 
 server: server.c server_global.c serverThread.c socket_queue.c
 	gcc server.c server_global.c serverThread.c socket_queue.c -o server
-
-client: client.c
-	gcc client.c -o client

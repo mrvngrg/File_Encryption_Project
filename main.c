@@ -51,8 +51,7 @@ void traverse(const char *path) {
             traverse(fullPath);  // recursive call
         } else if (S_ISREG(statbuf.st_mode)) {
             printf("File: %s\n", fullPath);
-            enqueue(&encrypt_queue, fullPath);
-            enqueue(&decrypt_queue, fullPath);
+            enqueue(&queue, fullPath);
         }
     }
 
@@ -80,8 +79,7 @@ int main() {
     }
 
     //RAND_bytes(key, sizeof(key));
-    initializeQueue(&encrypt_queue);
-    initializeQueue(&decrypt_queue);
+    initializeQueue(&queue);
 
     traverse(start_path);
 

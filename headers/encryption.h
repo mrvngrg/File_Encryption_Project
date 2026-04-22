@@ -1,3 +1,3 @@
-void encrypt_file(char *file, unsigned char* key);
+char *encrypt_file(char *file, unsigned char* key);
 
-void decrypt_file(char *file, unsigned char* key);
+char *decrypt_file(char *file, unsigned char* key);
