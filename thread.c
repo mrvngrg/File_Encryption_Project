@@ -6,49 +6,63 @@
 #include "headers/thread.h"
 #include "headers/encryption.h"
 #include "headers/globals.h"
+#include <time.h>
 
-void *runner(void *arg) {
-    unsigned char key[16] = "qwertyuiopasdfgh";
-    
-    while (1) {
-        char *data = dequeue(&queue);
+unsigned char key[16] = "qwertyuiopasdfgh";
+
+void start_encrypt() {
+    while (true) { //I'm not sure about this
+        char *data = dequeue(&encrypt_queue);
         if (data == NULL) {
             break;
         }
+        printf("TID: %lu: %s\n", (unsigned long)pthread_self(), data);
+        encrypt_file(data, key);
+        free(data);
+    }
+}
 
-        printf("Processing: %s\n", data);
+void start_decrypt() {
+    while (true) { //I'm not sure about this
+        char *data = dequeue(&decrypt_queue);
+        if (data == NULL) {
+            break;
+        }
+        printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
         decrypt_file(data, key);
         free(data);
     }
+}
 
+void *runner(void *arg) {
+    if (*(bool *)arg == true) {
+        start_encrypt();
+    } else {
+        start_decrypt();
+    }
     return NULL;
 }
 
-void initialize_threads(int n) {
-    if (n <= 0) {
-        fprintf(stderr, "Invalid thread count\n");
-        return;
-    }
+void initialize_threads(int n, bool encrypt) {
 
     pthread_t tids[n];
     pthread_attr_t attr;
     pthread_attr_init(&attr);
 
-    bool created[n];
+    bool* encrypt_ptr = malloc(sizeof(bool));
+    if (!encrypt_ptr) {
+        return;
+    }
+    *encrypt_ptr = encrypt;
 
     for (int i = 0; i < n; i++) {
-        created[i] = false;
-        int create = pthread_create(&tids[i], &attr, runner, NULL);
-        if (create != 0) {
-            fprintf(stderr, "error\n");
-        } else {
-            created[i] = true;
+        int tid = pthread_create(&tids[i], &attr, runner, encrypt_ptr);
+        if (tid < 0) {
+            printf("error by creating a thread\n");
         }
     }
 
     for (int i = 0; i < n; i++) {
-        if (created[i]) {
-            pthread_join(tids[i], NULL);
-        }
+        pthread_join(tids[i], NULL);
     }
 }

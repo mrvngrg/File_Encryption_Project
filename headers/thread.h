@@ -1,3 +1,3 @@
-void initialize_threads(int n);
+void initialize_threads(int n, bool encrypt);
 
 void *runner(void *arg);

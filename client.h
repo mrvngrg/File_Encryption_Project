@@ -6,12 +6,6 @@
 #include <unistd.h>
 #define PORT 8080
 
-char *ip;
+void *commands_listener(void *arg);
 
-
-int start_client();
-
-void send_key(char *key);
-
-void send_path(char *path); //If time
-
+int startclient();

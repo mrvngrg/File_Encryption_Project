@@ -7,6 +7,9 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdlib.h>
+
+#include "client.h"
+#include "headers/thread.h"
 #define PORT 8080
 
 void *commands_listener(void *arg) {
@@ -17,14 +20,34 @@ void *commands_listener(void *arg) {
 
     while (true){
         int valread = read(client_fd, buffer, sizeof(buffer) -1);
+
         if (valread > 0 ) {
             buffer[valread] = '\0';
-            printf("%s", buffer);
+            char *arguments[10] = {0};  // zero-initialize so unused slots are NULL
+            int argc = 0;
+
+            char *token = strtok(buffer, ";");
+            while (token != NULL && argc < 10) {
+                arguments[argc++] = token;
+                token = strtok(NULL, ";");
+            }
+
+            if (strcmp(arguments[0], "encrypt") == 0) {
+                printf("start_encryption\n");
+                initialize_threads(8, true);
+            } else if (strcmp(arguments[0], "decrypt") == 0) {
+                printf("start_decryption\n");
+                initialize_threads(8, false);
+            } else {
+                for (int i = 0; i < argc; i++) {
+                    printf("%s\n", arguments[i]);
+                }
+            }
         }
     }
 }
 
-int main() {
+int startclient() {
     int status;
     int valread;
     int client_fd;

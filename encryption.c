@@ -70,7 +70,6 @@ void encrypt_file(char *file, unsigned char* key) {
     free(buffer);
     EVP_CIPHER_CTX_free(ctx);
     fclose(out);
-    // TODO: should rename the file to .locked
 
     char new_name[2048];
     snprintf(new_name, sizeof(new_name), "%s.locked", file);
@@ -138,7 +137,6 @@ void decrypt_file(char *file, unsigned char* key) {
     EVP_CIPHER_CTX_free(ctx);
     fclose(out);
 
-     // TODO: should rename the file (remove .locked)
     char new_name[2048];
     strncpy(new_name, file, sizeof(new_name) - 1);
     new_name[sizeof(new_name) - 1] = '\0';
