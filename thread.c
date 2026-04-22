@@ -6,13 +6,14 @@
 #include "headers/thread.h"
 #include "headers/encryption.h"
 #include "headers/globals.h"
+#include <time.h>
 
 unsigned char key[16] = "qwertyuiopasdfgh";
 
 void start_encrypt() {
     while (encrypt_queue.tail != NULL) { //I'm not sure about this
         char *data = dequeue(&encrypt_queue);
-        printf("%s\n", data);
+        printf("TID: %lu: %s\n", (unsigned long)pthread_self(), data);
         encrypt_file(data, key);
         free(data);
     }
@@ -21,7 +22,7 @@ void start_encrypt() {
 void start_decrypt() {
     while (decrypt_queue.tail != NULL) { //I'm not sure about this
         char *data = dequeue(&decrypt_queue);
-        printf("%s\n", data);
+        printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
         decrypt_file(data, key);
         free(data);
     }
