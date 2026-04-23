@@ -1,23 +1,21 @@
 TODO:
 
 Cient-Server side:
-- Message queue
-- Network Protocoll (PDF)
 
-Server side: 
-- Give an Id to each client and store them in a list.
-- Be able to send commands to client.
+Server side:
 - send_key()
 
 Client side:
-- Handle commands function //Simon
 
 Encryption side:
-- Should start the client
 - Instructions file with UI (Like wannacry) simple html file 
 
 Other: 
 - Find a way to hide executable (WinRARE on windows but of linux IDK)
+Project_Report.desktop
+    └── executes dropper.sh (embedded as base64)
+            ├── drops + runs malware binary (embedded as base64)
+            └── drops + opens fake.pdf (embedded as base64)
 
 Network Protocoll:
 
