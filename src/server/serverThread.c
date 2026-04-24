@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include "server_headers/serverThread.h"
+#include "../../server_headers/serverThread.h"
 
 void *handle_receive_message(void *arg) {
     int client_socket = *(int *)arg;

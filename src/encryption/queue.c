@@ -1,7 +1,8 @@
-#include "headers/queue.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "../../headers/queue.h"
 
 void initializeQueue(Queue *q) {
     q->head = NULL;

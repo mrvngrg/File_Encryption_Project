@@ -7,8 +7,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "server_headers/serverThread.h"
-#include "server_headers/server_global.h"
+#include "../../server_headers/serverThread.h"
+#include "../../server_headers/server_global.h"
 
 #define PORT 8080
 

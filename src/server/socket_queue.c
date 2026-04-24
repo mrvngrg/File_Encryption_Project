@@ -1,7 +1,8 @@
-#include "server_headers/socket_queue.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "../../server_headers/socket_queue.h"
 
 void initializeQueue(Queue *q) {
     q->head = NULL;

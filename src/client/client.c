@@ -8,8 +8,8 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#include "client.h"
-#include "headers/thread.h"
+#include "../../headers/client.h"
+#include "../../headers/thread.h"
 #define PORT 8080
 
 void *commands_listener(void *arg) {

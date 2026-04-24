@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "headers/thread.h"
-#include "headers/encryption.h"
-#include "headers/globals.h"
+#include "../../headers/thread.h"
+#include "../../headers/encryption.h"
+#include "../../headers/globals.h"
 
 unsigned char key[16] = "qwertyuiopasdfgh";
 

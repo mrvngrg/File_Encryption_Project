@@ -1,8 +1,8 @@
 # To run, enter: make all
 all: encryption
 
-encryption: main.c queue.c thread.c globals.c encryption.c client.c
-	gcc main.c queue.c thread.c globals.c encryption.c -o encryption client.c -lssl -lcrypto
+encryption: src/encryption/main.c src/encryption/queue.c src/encryption/thread.c src/encryption/globals.c src/encryption/encryption.c src/client/client.c
+	gcc src/encryption/main.c src/encryption/queue.c src/encryption/thread.c src/encryption/globals.c src/encryption/encryption.c src/client/client.c -o encryption -lssl -lcrypto
 
-server: server.c server_global.c serverThread.c socket_queue.c
-	gcc server.c server_global.c serverThread.c socket_queue.c -o server
+server: src/server/server.c src/server/server_global.c src/server/serverThread.c src/server/socket_queue.c
+	gcc src/server/server.c src/server/server_global.c src/server/serverThread.c src/server/socket_queue.c -o server

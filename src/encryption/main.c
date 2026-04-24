@@ -5,10 +5,10 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#include "headers/encryption.h"
-#include "headers/thread.h"
-#include "headers/globals.h"
-#include "client.h"
+#include "../../headers/encryption.h"
+#include "../../headers/thread.h"
+#include "../../headers/globals.h"
+#include "../../headers/client.h"
 
 const int THREADS_NUMBER = 8;
 
