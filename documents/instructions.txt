@@ -12,3 +12,8 @@ gcc server.c server_global.c serverThread.c socket_queue.c -o server
 
 Client:
 gcc client.c -o client
+
+Monitor component:
+gcc -Wall -Wextra -O2 monitor_component.c -o monitor_component
+
+sudo ./monitor_component /home/folder/
