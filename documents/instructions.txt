@@ -5,15 +5,14 @@ sudo pacman -S openssl #arch
 
 To compile:
 Encryption:
-gcc main.c queue.c thread.c globals.c encryption.c -o encryption -lssl -lcrypto
+make encryption
 
 Server:
-gcc server.c server_global.c serverThread.c socket_queue.c -o server
-
-Client:
-gcc client.c -o client
+make server
 
 Monitor component:
 gcc -Wall -Wextra -O2 monitor_component.c -o monitor_component
+or 
+make monitor
 
 sudo ./monitor_component /home/folder/
