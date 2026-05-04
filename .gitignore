@@ -21,3 +21,8 @@ rad.json
 #Test results file
 TestResults.xml
 .idea/
+# compiled binaries
+encryption
+server
+monitor
+watcher
