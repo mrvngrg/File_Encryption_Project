@@ -12,6 +12,7 @@
 #include <time.h>
 #include <signal.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #define TIME_WINDOW 1
 #define PIDS 256
@@ -40,6 +41,7 @@ struct pid_activity {
     int write_count;
     int modify_count;
     time_t timestamp;
+    bool pass;
 };
 
 
@@ -65,6 +67,7 @@ static struct pid_activity *process_tracker(pid_t pid) {
             PID_List[i].write_count = 0;
             PID_List[i].modify_count = 0;
             PID_List[i].timestamp = time(NULL);
+            PID_List[i].pass = false;
             return &PID_List[i];
         }
     }
@@ -81,6 +84,10 @@ static int activity(pid_t pid, unsigned long long mask) {
     struct pid_activity *p = process_tracker(pid);
     if (p == NULL) {
         fprintf(stderr, "PID list is full\n");
+        return 0;
+    }
+
+    if(p->pass) {
         return 0;
     }
 
@@ -149,6 +156,10 @@ static void stop_activity(pid_t pid, const char *proc_name) {
             printf("Process %d killed.\n", pid);
         }
     } else  {
+        struct pid_activity *p = process_tracker(pid);
+        if(p->pass == false) {
+            p->pass = true;
+        }
         if (kill(pid, SIGCONT) == -1) {
             perror("SIGCONT failed");
         } else {
