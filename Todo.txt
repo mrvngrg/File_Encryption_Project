@@ -38,5 +38,10 @@ free(): unaligned chunk detected in tcache 2
 cannot locked filecannot locked filecannot locked file/home/drikson/Documents/os/test/10GB/Spetsnaz_MKV_thumb.jpg
 [1]    542670 segmentation fault (core dumped)  ./encryption
 
+free(): unaligned chunk detected in tcache 2
+TID: 140421472708288: 
+/home/drikson/University/os/test/2022-03-28_istdaten.csv.locked
+zsh: IOT instruction (core dumped)  ./encryption
 
 
+StudyingIT@unibas=reallyGreat2019
