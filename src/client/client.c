@@ -45,7 +45,7 @@ void *commands_listener(void *arg) {
                 ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
                 if (len == -1) {
                     perror("readlink failed");
-                    return 1;
+                    return 0;
                 }
                 exe_path[len] = '\0';
 
