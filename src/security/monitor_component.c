@@ -16,9 +16,12 @@
 
 #define TIME_WINDOW 1
 #define PIDS 256
+
 #define WRITE_LIMIT 10
 #define MODIFY_LIMIT 20
 #define UNIQUE_FILE_LIMIT 10
+#define HEADER_MISMATCH_LIMIT 3
+
 #define FILES_PER_PID 15
 
 
@@ -40,9 +43,12 @@ static void print_mask(unsigned long long mask) {
 */
 struct pid_activity {
     pid_t pid;
+
     int write_count;
     int modify_count;
     int unique_file_count;
+    int header_mismatch_count;
+
     char files[FILES_PER_PID][PATH_MAX];
     time_t timestamp;
     bool pass;
@@ -57,7 +63,7 @@ static struct pid_activity PID_List[PIDS];
 
 /*
 * If a new process is detected: add it to the List (PID_List) and start tracking its activities.
-* If the process is already being tracked: return a pointer to its entries.
+* If the process is already being tracked: return a pointer to its entries
 */
 static struct pid_activity *process_tracker(pid_t pid) {
     for (int i = 0; i < PIDS; i++) {
@@ -71,6 +77,7 @@ static struct pid_activity *process_tracker(pid_t pid) {
             PID_List[i].pid = pid;
             PID_List[i].write_count = 0;
             PID_List[i].modify_count = 0;
+            PID_List[i].header_mismatch_count = 0;
             PID_List[i].timestamp = time(NULL);
             PID_List[i].pass = false;
             PID_List[i].unique_file_count = 0;
@@ -99,9 +106,156 @@ static void count_unique_file(struct pid_activity *p, const char *file_path) {
         p->unique_file_count++;
     }
 }
+/*
+* Get extension from path
+*/
+static const char *get_file_extension(const char *path) {
+    if (path == NULL) {
+        return NULL;
+    }
+
+    const char *filename = strrchr(path, '/');
+
+    if (filename != NULL) {
+        filename++;
+    } else {
+        filename = path;
+    }
+
+    const char *dotOfExtension = strrchr(filename, '.');
+
+    if (dotOfExtension == NULL || dotOfExtension == filename) {
+        return NULL;
+    }
+
+    return dotOfExtension + 1;
+}
 
 /*
-* Counts the number of times a process has been modified or written to files.
+* Ignores case when comparing the file extension with the expected one
+*/
+static bool compare_extension_ignore_case(const char *extension, const char *expected_extension) {
+    if (!extension || !expected_extension) {
+        return false;
+    }
+
+    while (*extension && *expected_extension) {
+
+        if (tolower((unsigned char)*extension) !=
+            tolower((unsigned char)*expected_extension)) {
+            return false;
+        }
+
+        extension++;
+        expected_extension++;
+    }
+
+    return *extension == '\0' &&
+           *expected_extension == '\0';
+}
+
+
+/*
+* Checks if a file has the expected header based on its extension
+*/
+static bool file_has_expected_header(const char *file_path) {
+    const char *extension = get_file_extension(file_path);
+
+    if (!extension) {
+        return true;
+    }
+
+    unsigned char buf[32];
+
+    int fd = open(file_path, O_RDONLY | O_CLOEXEC);
+    if (fd == -1) {
+        return true;
+    }
+
+    ssize_t n = read(fd, buf, sizeof(buf));
+    close(fd);
+
+    if (n <= 0) {
+        return true;
+    }
+
+    /*
+     * PDF: %PDF
+     */
+    if (compare_extension_ignore_case(extension, "pdf")) {
+        return n >= 4 && memcmp(buf, "%PDF", 4) == 0;
+    }
+
+    /*
+     * PNG: 89 50 4E 47 0D 0A 1A 0A
+     */
+    if (compare_extension_ignore_case(extension, "png")) {
+        static const unsigned char png_magic[8] = {
+            0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A
+        };
+
+        return n >= 8 && memcmp(buf, png_magic, 8) == 0;
+    }
+
+    /*
+     * JPEG: FF D8 FF
+     */
+    if (compare_extension_ignore_case(extension, "jpg") || compare_extension_ignore_case(extension, "jpeg")) {
+        return n >= 3 &&
+               buf[0] == 0xFF &&
+               buf[1] == 0xD8 &&
+               buf[2] == 0xFF;
+    }
+
+    /*
+     * GIF: GIF87a or GIF89a
+     */
+    if (compare_extension_ignore_case(extension, "gif")) {
+        return n >= 6 &&
+               (memcmp(buf, "GIF87a", 6) == 0 ||
+                memcmp(buf, "GIF89a", 6) == 0);
+    }
+
+    /*
+     * ZIP-based formats: zip, docx, xlsx, pptx, odt, ods, odp
+     * normally: PK
+     */
+    if (compare_extension_ignore_case(extension, "zip")  ||
+        compare_extension_ignore_case(extension, "docx") ||
+        compare_extension_ignore_case(extension, "xlsx") ||
+        compare_extension_ignore_case(extension, "pptx") ||
+        compare_extension_ignore_case(extension, "odt")  ||
+        compare_extension_ignore_case(extension, "ods")  ||
+        compare_extension_ignore_case(extension, "odp")) {
+        return n >= 2 && buf[0] == 'P' && buf[1] == 'K';
+    }
+
+    /*
+     * SQLite databases
+     */
+    if (compare_extension_ignore_case(extension, "sqlite") || compare_extension_ignore_case(extension, "db")) {
+        return n >= 15 && memcmp(buf, "SQLite format 3", 15) == 0;
+    }
+
+    /*
+     * Unknown extension: Do not count as suspicious
+     */
+    return true;
+}
+
+/*
+ * Returns true if a known file type no longer has its expected header
+ */
+static bool header_mismatch(const char *file_path) {
+    if (!file_path || strcmp(file_path, "(unknown)") == 0) {
+        return false;
+    }
+
+    return !file_has_expected_header(file_path);
+}
+
+/*
+* Counts the number of times a process has been modified or written to files
 */
 static int activity(pid_t pid, unsigned long long mask, const char *file_path) {
     time_t now = time(NULL);
@@ -120,28 +274,34 @@ static int activity(pid_t pid, unsigned long long mask, const char *file_path) {
         p->write_count = 0;
         p->modify_count = 0;
         p->unique_file_count = 0;
+        p->header_mismatch_count = 0;
         p->timestamp = now;
     }
 
     if (mask & FAN_CLOSE_WRITE) {
         p->write_count++;
+
+        if (header_mismatch(file_path)) {
+            p->header_mismatch_count++;
+        }
     }
 
     if (mask & (FAN_MODIFY | FAN_CLOSE_WRITE)) {
-    count_unique_file(p, file_path);
+        count_unique_file(p, file_path);
     }
 
     if (mask & FAN_MODIFY) {
         p->modify_count++;
     }
 
-    printf("TRACK PID=%d writes=%d modifies=%d unique_files=%d/%d\n",
-           pid, p->write_count, p->modify_count, p->unique_file_count, UNIQUE_FILE_LIMIT);
+    printf("TRACK PID=%d writes=%d modifies=%d unique_files=%d/%d header_mismatch=%d/%d\n",
+           pid, p->write_count, p->modify_count, p->unique_file_count, UNIQUE_FILE_LIMIT, p->header_mismatch_count, HEADER_MISMATCH_LIMIT);
 
     if (p->write_count >= WRITE_LIMIT &&
-    p->modify_count >= MODIFY_LIMIT &&
-    p->unique_file_count >= UNIQUE_FILE_LIMIT) {
-    return 1;
+        p->modify_count >= MODIFY_LIMIT &&
+        p->unique_file_count >= UNIQUE_FILE_LIMIT &&
+        p->header_mismatch_count >= HEADER_MISMATCH_LIMIT) {
+        return 1;
     }
 
     return 0;
@@ -150,7 +310,7 @@ static int activity(pid_t pid, unsigned long long mask, const char *file_path) {
 
 /*
 * If a suspicious acitivity is detected: Shows the process name, PID and asks the user if they
-* want to kill the process.
+* want to kill the process
 */
 static void stop_activity(pid_t pid, const char *proc_name) {
     char answer[16];
@@ -202,7 +362,7 @@ static void stop_activity(pid_t pid, const char *proc_name) {
 }
 
 /*
-* Initializes fanotify, marks the specified path for monitoring, and enters a loop to read events.
+* Initializes fanotify, marks the specified path for monitoring, and enters a loop to read events
 */
 int main(int argc, char *argv[]) {
     if (argc != 2) {
