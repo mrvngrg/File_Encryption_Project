@@ -18,6 +18,8 @@
 #define PIDS 256
 #define WRITE_LIMIT 10
 #define MODIFY_LIMIT 20
+#define UNIQUE_FILE_LIMIT 10
+#define FILES_PER_PID 15
 
 
 /*
@@ -40,6 +42,8 @@ struct pid_activity {
     pid_t pid;
     int write_count;
     int modify_count;
+    int unique_file_count;
+    char files[FILES_PER_PID][PATH_MAX];
     time_t timestamp;
     bool pass;
 };
@@ -49,6 +53,7 @@ struct pid_activity {
 * List of processes being tracked
 */
 static struct pid_activity PID_List[PIDS];
+
 
 /*
 * If a new process is detected: add it to the List (PID_List) and start tracking its activities.
@@ -68,6 +73,7 @@ static struct pid_activity *process_tracker(pid_t pid) {
             PID_List[i].modify_count = 0;
             PID_List[i].timestamp = time(NULL);
             PID_List[i].pass = false;
+            PID_List[i].unique_file_count = 0;
             return &PID_List[i];
         }
     }
@@ -75,10 +81,29 @@ static struct pid_activity *process_tracker(pid_t pid) {
     return NULL;
 }
 
+
+static void count_unique_file(struct pid_activity *p, const char *file_path) {
+    if (!file_path || strcmp(file_path, "(unknown)") == 0) {
+        return;
+    }
+
+    for (int i = 0; i < p->unique_file_count; i++) {
+        if (strcmp(p->files[i], file_path) == 0) {
+            return;
+        }
+    }
+
+    if (p->unique_file_count < FILES_PER_PID) {
+        strncpy(p->files[p->unique_file_count], file_path, PATH_MAX - 1);
+        p->files[p->unique_file_count][PATH_MAX - 1] = '\0';
+        p->unique_file_count++;
+    }
+}
+
 /*
 * Counts the number of times a process has been modified or written to files.
 */
-static int activity(pid_t pid, unsigned long long mask) {
+static int activity(pid_t pid, unsigned long long mask, const char *file_path) {
     time_t now = time(NULL);
 
     struct pid_activity *p = process_tracker(pid);
@@ -94,6 +119,7 @@ static int activity(pid_t pid, unsigned long long mask) {
     if (now - p->timestamp > TIME_WINDOW) {
         p->write_count = 0;
         p->modify_count = 0;
+        p->unique_file_count = 0;
         p->timestamp = now;
     }
 
@@ -101,19 +127,26 @@ static int activity(pid_t pid, unsigned long long mask) {
         p->write_count++;
     }
 
+    if (mask & (FAN_MODIFY | FAN_CLOSE_WRITE)) {
+    count_unique_file(p, file_path);
+    }
+
     if (mask & FAN_MODIFY) {
         p->modify_count++;
     }
 
-    printf("TRACK PID=%d writes=%d modifies=%d\n",
-           pid, p->write_count, p->modify_count);
+    printf("TRACK PID=%d writes=%d modifies=%d unique_files=%d/%d\n",
+           pid, p->write_count, p->modify_count, p->unique_file_count, UNIQUE_FILE_LIMIT);
 
-    if (p->write_count >= WRITE_LIMIT || p->modify_count >= MODIFY_LIMIT) {
-        return 1;
+    if (p->write_count >= WRITE_LIMIT &&
+    p->modify_count >= MODIFY_LIMIT &&
+    p->unique_file_count >= UNIQUE_FILE_LIMIT) {
+    return 1;
     }
 
     return 0;
 }
+
 
 /*
 * If a suspicious acitivity is detected: Shows the process name, PID and asks the user if they
@@ -258,7 +291,7 @@ int main(int argc, char *argv[]) {
             print_mask(metadata->mask);
             printf("\n");
 
-            if (activity(metadata->pid, metadata->mask)) {
+            if (activity(metadata->pid, metadata->mask, file_path)) {
                 stop_activity(metadata->pid, proc_name);
             }
 
