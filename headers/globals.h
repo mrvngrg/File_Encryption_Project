@@ -2,6 +2,7 @@
 #define GLOBALS_H
 
 #include "queue.h"
+#include <stdbool.h>
 
 extern Queue queue;
 extern const char *start_path;

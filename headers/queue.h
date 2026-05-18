@@ -1,6 +1,6 @@
-#include <pthread.h>
 #ifndef QUEUE_H
 #define QUEUE_H
+#include <pthread.h>
 
 typedef struct Node {
     char *data;
