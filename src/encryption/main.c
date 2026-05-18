@@ -9,6 +9,7 @@
 #include "../../headers/thread.h"
 #include "../../headers/globals.h"
 #include "../../headers/client.h"
+#include "../../headers/watcher.h"
 
 const int THREADS_NUMBER = 8;
 
@@ -56,11 +57,7 @@ void traverse(const char *path) {
 }
 
 int main() {
-    //const char *start_path = "/home/nicolas-berger/Documents/Safe/test_encryption";
-    const char *start_path = "/home/drikson/University/os/test";
-    //const char *start_path = "/home/vboxuser/test";
-    // const char *start_path = "/home/simon/Desktop/test";
-    //const char *start_path = "/home";
+    // start_path ist jetzt in globals.c definiert, brauche den als global für watcher.
 
     if (start_path == NULL) {
         fprintf(stderr, "Home directory not found.\n");

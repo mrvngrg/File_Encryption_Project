@@ -1,3 +1,4 @@
+#include <pthread.h>
 #ifndef QUEUE_H
 #define QUEUE_H
 
@@ -9,6 +10,7 @@ typedef struct Node {
 typedef struct Queue {
     Node *head;
     Node *tail;
+    pthread_mutex_t lock;
 } Queue;
 
 void initializeQueue(Queue *q);

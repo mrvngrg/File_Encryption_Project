@@ -1,18 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "../../headers/queue.h"
 
 void initializeQueue(Queue *q) {
+    pthread_mutex_init(&q->lock, NULL);
+
     q->head = NULL;
     q->tail = NULL;
 }
 
 void enqueue(Queue *q, const char *path) {
+    pthread_mutex_lock(&q->lock);
+
     Node *newNode = malloc(sizeof(Node));
     if (newNode == NULL) {
         printf("Memory allocation failed\n");
+        pthread_mutex_unlock(&q->lock);
         return;
     }
 
@@ -20,6 +26,7 @@ void enqueue(Queue *q, const char *path) {
     if (newNode->data == NULL) {
         free(newNode);
         printf("Memory allocation failed\n");
+        pthread_mutex_unlock(&q->lock);
         return;
     }
 
@@ -27,15 +34,22 @@ void enqueue(Queue *q, const char *path) {
 
     if (q->tail == NULL) {
         q->head = q->tail = newNode;
+        pthread_mutex_unlock(&q->lock);
         return;
     }
 
     q->tail->next = newNode;
     q->tail = newNode;
+
+    pthread_mutex_unlock(&q->lock);
 }
 
 char *dequeue(Queue *q) {
+
+    pthread_mutex_lock(&q->lock);
+
     if (q->head == NULL) {
+        pthread_mutex_unlock(&q->lock);
         return NULL;
     }
 
@@ -49,6 +63,7 @@ char *dequeue(Queue *q) {
     }
 
     free(temp);
+    pthread_mutex_unlock(&q->lock);
     return data;
 }
 
@@ -60,6 +75,9 @@ char *get_element(Queue *q) {
 }
 
 void remove_by_value(Queue *q, const char *value) {
+
+    pthread_mutex_lock(&q->lock);
+
     Node *curr = q->head;
     Node *prev = NULL;
 
@@ -75,6 +93,9 @@ void remove_by_value(Queue *q, const char *value) {
         prev = curr;
         curr = curr->next;
     }
+
+    pthread_mutex_unlock(&q->lock);
+
 }
 
 void print_queue(Queue *q) {
@@ -99,6 +120,8 @@ void print_queue(Queue *q) {
 }
 
 char *peek(Queue *q) {
+    pthread_mutex_lock(&q->lock);
     char *data = q->head ? q->head->data : NULL;
+    pthread_mutex_unlock(&q->lock);
     return data;
 }

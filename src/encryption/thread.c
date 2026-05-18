@@ -8,7 +8,6 @@
 #include "../../headers/encryption.h"
 #include "../../headers/globals.h"
 
-unsigned char key[16] = "qwertyuiopasdfgh";
 
 void start_encrypt() {
     while (true) {
