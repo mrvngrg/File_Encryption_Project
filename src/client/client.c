@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/utsname.h>
 
 #include "../../headers/client.h"
 #include "../../headers/thread.h"
@@ -99,10 +100,22 @@ int startclient() {
 
     char* hey = "PC connected, number of file : ";
 
+    struct utsname name;
+
+    if (uname(&name) == -1) {
+        perror("uname");
+        return 1;
+    }
+    char* nodename = name.nodename;
+    char* sysname = name.sysname;
+    //char* machine = name.machine;
+    //char* version = name.version;
+    //char* release = name.release;
+
     int file_number = count(&queue);
 
     char ret[64];
-    sprintf(ret, "%s%d", hey, file_number);
+    sprintf(ret, "%s %d, username: %s, OS kernel: %s", hey, file_number, nodename, sysname);
     send(client_fd, ret, strlen(ret), 0);
 
     int *clientfd = malloc(sizeof(int));
