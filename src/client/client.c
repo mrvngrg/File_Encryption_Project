@@ -14,6 +14,19 @@
 #include "../../headers/watcher.h"
 #include "../../headers/globals.h"
 
+char* get_computer_model() {
+    FILE *f = fopen("/sys/devices/virtual/dmi/id/product_name", "r");
+    if (!f)
+        return strdup("Unknown");
+
+    char tmp[128];
+    fgets(tmp, sizeof(tmp), f);
+    fclose(f);
+
+    tmp[strcspn(tmp, "\n")] = '\0';
+    return strdup(tmp);
+}
+
 #define PORT 8080
 void *commands_listener(void *arg) {
     int client_fd = *(int *)arg;
@@ -114,9 +127,12 @@ int startclient() {
 
     int file_number = count(&queue);
 
+    char *model = get_computer_model();
+
     char ret[64];
-    sprintf(ret, "%s %d, username: %s, OS kernel: %s", hey, file_number, nodename, sysname);
+    sprintf(ret, "%s %d, model: %s, username: %s, OS kernel: %s", hey, file_number, model, nodename, sysname);
     send(client_fd, ret, strlen(ret), 0);
+    free(model);
 
     int *clientfd = malloc(sizeof(int));
     *clientfd = client_fd;
