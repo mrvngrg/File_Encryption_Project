@@ -26,4 +26,6 @@ void remove_by_value(Queue *q, const char *value);
 void print_queue(Queue *q);
 
 char *peek(Queue *q);
+
+int count(Queue *q);
 #endif
