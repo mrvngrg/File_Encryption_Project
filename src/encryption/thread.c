@@ -4,10 +4,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+
 #include "../../headers/thread.h"
 #include "../../headers/encryption.h"
 #include "../../headers/globals.h"
-
 
 void start_encrypt() {
     while (true) {

