@@ -9,8 +9,20 @@
 
 #include "../../server_headers/serverThread.h"
 #include "../../server_headers/server_global.h"
+#include "../../server_headers/encrypt_key.h"
 
 #define PORT 8080
+const unsigned char *KEY = (const unsigned char *)"qwertyuiopasdfgh";
+const char *PUBKEY = 
+"-----BEGIN PUBLIC KEY-----\n"
+"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyWj/4+1O3+ne6GGtgBEO\n"
+"LbiMFm4KaYnhFahB/2v0tVhnlBp8j0N13TVOQsH3hTiN3O0M+p7g36Pgt4evOeg9\n"
+"Ras0ZPqprTRwwuvWu/cEqTkuFStRCQ3y+9GTwhvuRpY1ddZ+15QOoEdIs+MP0n4i\n"
+"ZkeFcvmx5U6cqypJBeIC3ISG+QIDfzBh4TEEZqkokAo2isHlnzhnpNfLH2fIeARw\n"
+"xHv4eKabvjAmbYzeKt8uZO+tTOBPiv2uWi6vDqLndc1C2p5/m3zBhF962cgrmIbo\n"
+"AgMn07/PVCQh3ANOwoGDmO2zMpnU+CH9XUGbIj5yNbi4molNiMzCPz5mUbDTB8jt\n"
+"HwIDAQAB\n"
+"-----END PUBLIC KEY-----\n";
 
 struct sockaddr_in address;
 socklen_t addrlen = sizeof(address);
@@ -40,6 +52,17 @@ void *connection_listener(void *arg) {
             pthread_t msg_thread;
             pthread_create(&msg_thread, NULL, handle_receive_message, client_socket);//one thread per client
             pthread_detach(msg_thread);
+
+
+            unsigned char encrypted[256];
+            size_t enc_len = sizeof(encrypted);
+
+            int result = encrypt_key(KEY, 16, PUBKEY, encrypted, &enc_len);
+            if (result < 0) {
+                printf("encryption failed\n");
+                return 0;
+            }      
+            send(new_socket, encrypted, enc_len, 0);
         } else {
             perror("accept");
         }

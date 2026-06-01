@@ -118,7 +118,10 @@ void *start_watcher(void *args) {
                         printf("new file: %s\n", full_path);
                         if (encryption_active && access(full_path, F_OK) ==0) {
 
+                            unsigned char key[16];
+                            use_key(key);
                             char *locked = encrypt_file(full_path, key);
+                            wipe_key(key);
                             if (locked != NULL) {
 
                                 remove_by_value(&queue, "END_ENCRYPT");
@@ -138,7 +141,11 @@ void *start_watcher(void *args) {
 
                         if (encryption_active && access( full_path, F_OK) == 0) {
 
+                            unsigned char key[16];
+                            use_key(key);
                             char *locked = encrypt_file(full_path, key);
+                            wipe_key(key);
+                            
                             if (locked != NULL) {
                                 remove_by_value(&queue, "END_ENCRYPT");
                                 enqueue(&queue, locked);

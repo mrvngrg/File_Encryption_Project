@@ -1,0 +1,1 @@
+void decrypt_key(unsigned char *encrypted);

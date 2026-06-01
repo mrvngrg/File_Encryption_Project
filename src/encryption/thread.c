@@ -16,7 +16,10 @@ void start_encrypt() {
         
         char *data = dequeue(&queue);
         printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
+        unsigned char key[16];
+        use_key(key);
         char *filename = encrypt_file(data, key);
+        wipe_key(key);
         enqueue(&queue, filename);
         free(data);
         free(filename);
@@ -30,7 +33,10 @@ void start_decrypt() {
 
         char *data = dequeue(&queue);
         printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
+        unsigned char key[16];
+        use_key(key);
         char *filename = decrypt_file(data, key);
+        wipe_key(key);
         enqueue(&queue, filename);
         free(data);
         free(filename);

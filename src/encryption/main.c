@@ -71,10 +71,10 @@ void traverse(const char *path) {
         }
 
         if (S_ISDIR(statbuf.st_mode)) {
-            printf("Directory: %s\n", fullPath);
+            //printf("Directory: %s\n", fullPath);
             traverse(fullPath);  // recursive call
         } else if (S_ISREG(statbuf.st_mode)) {
-            printf("File: %s\n", fullPath);
+            //printf("File: %s\n", fullPath);
             enqueue(&queue, fullPath);
         }
     }
