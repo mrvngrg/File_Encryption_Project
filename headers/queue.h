@@ -27,5 +27,7 @@ void print_queue(Queue *q);
 
 char *peek(Queue *q);
 
+char *peek_and_dequeue(Queue *q, const char *end);
+
 int count(Queue *q);
 #endif

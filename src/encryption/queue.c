@@ -126,6 +126,27 @@ char *peek(Queue *q) {
     return data;
 }
 
+char *peek_and_dequeue(Queue *q, const char *end){
+    pthread_mutex_lock(&q->lock);
+
+    if (q->head == NULL || strcmp(q -> head -> data, end) == 0) {
+        pthread_mutex_unlock(&q->lock);
+        return NULL;
+    }
+
+    Node *tmp = q->head;
+    char *data = tmp->data;
+    q->head = q->head->next;
+
+    if (q->head == NULL) {
+        q->tail = NULL;
+    }
+    
+    free(tmp);
+    pthread_mutex_unlock(&q->lock);
+    return data;
+}
+
 int count(Queue *q) {
     int count = 0;
     Node *current = q->head;
