@@ -8,6 +8,9 @@ TODO:
 Bugs: 
 - When decrypting first files get locked perma.
 - .txt files cannot be encrypted
+- If you try to encrypt files like .git or .venv we get: 
+  ./encryption' terminated by signal SIGSEGV (Address boundary error)
+  there are weird files in these folders. (Maybe we have to skip these files)
 
 error by decrypting: (happend only one time)
 free(): unaligned chunk detected in tcache 2

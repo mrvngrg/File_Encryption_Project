@@ -38,11 +38,6 @@ void start_decrypt() {
             break;
         }
 
-        if (strstr(data, ".locked") == NULL) {
-            free(data);
-            continue;
-        }
-
         printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
         char *filename = decrypt_file(data, key);
         enqueue(&queue, filename);
