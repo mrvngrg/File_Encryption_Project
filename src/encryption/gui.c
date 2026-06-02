@@ -1,8 +1,9 @@
 #include "raylib.h"
 #include "raygui.h"
+#include "stdio.h"
 
 int display_gui() {
-    InitWindow(400, 200, "test");
+    InitWindow(450, 600, "test");
     SetTargetFPS(60);
 
     int frame_count = 0;
@@ -25,12 +26,16 @@ int display_gui() {
         }
 
         BeginDrawing();
-            ClearBackground(RAYWHITE);
+            ClearBackground((Color){ 255, 0, 0, 255 });
             DrawTexture(texture, 10, 10, WHITE);
+            DrawText("Your Files are Encrypted, if you want", 10, texture.height + 20, 20, BLACK);
+            DrawText("them back you must send 10 bicoins to me", 10, texture.height + 45, 20, BLACK);
+            if (GuiButton((Rectangle){ 10, texture.height + 70, 400, 70 }, "Send 10 bitcoins")) {
+                printf("button clicked\n");
+            }
         EndDrawing();
     }
 
-    // Unload both at the end
     UnloadImage(gif);
     UnloadTexture(texture);
     CloseWindow();

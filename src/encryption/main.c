@@ -110,7 +110,7 @@ int main() {
     while (!encryption_active) {
         usleep(100000);
     }
-    //display_gui();
+    display_gui();
 
     pthread_join(client_tid, NULL);
 
