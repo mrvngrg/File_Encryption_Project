@@ -108,7 +108,7 @@ int main() {
     pthread_create(&client_tid, NULL, startclient, NULL);
 
     while (!encryption_active) {
-        usleep(100000); // check every 100ms
+        usleep(100000);
     }
     //display_gui();
 

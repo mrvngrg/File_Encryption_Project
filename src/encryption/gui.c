@@ -6,7 +6,7 @@ int display_gui() {
     SetTargetFPS(60);
 
     int frame_count = 0;
-    Image gif = LoadImageAnim("/home/drikson/University/os/File_Encryption_Project/giphy.gif", &frame_count);
+    Image gif = LoadImageAnim("giphy.gif", &frame_count);
     Texture2D texture = LoadTextureFromImage(gif);
 
     int current_frame = 0;
