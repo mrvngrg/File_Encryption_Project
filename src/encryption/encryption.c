@@ -32,7 +32,7 @@ char *encrypt_file(char *file, unsigned char* key) {
             char *tmp = realloc(buffer, capacity);
             
             if (tmp == NULL) { 
-                /* should handle error */ 
+                //todo: error handling
             }
             buffer = tmp; 
         }
@@ -47,7 +47,6 @@ char *encrypt_file(char *file, unsigned char* key) {
         buffer = malloc(EVP_MAX_BLOCK_LENGTH);
         if (buffer == NULL) {
             fprintf(stderr, "malloc failed\n");
-            fclose(in);
             EVP_CIPHER_CTX_free(ctx);
             return NULL;
         }
@@ -81,6 +80,7 @@ char *decrypt_file(char *file, unsigned char* key) {
     FILE *in = fopen(file, "rb");
     if (in == NULL){
         printf("cannot locked file"); 
+        return NULL;
     }
 
     unsigned char iv[16];
@@ -104,7 +104,7 @@ char *decrypt_file(char *file, unsigned char* key) {
             char *tmp = realloc(buffer, capacity);
             
             if (tmp == NULL) { 
-                /* should handle error */ 
+               //todo; error handling
             }
             buffer = tmp; 
         }
@@ -119,7 +119,6 @@ char *decrypt_file(char *file, unsigned char* key) {
         buffer = malloc(EVP_MAX_BLOCK_LENGTH);
         if (buffer == NULL) {
             fprintf(stderr, "malloc failed\n");
-            fclose(in);
             EVP_CIPHER_CTX_free(ctx);
             return NULL;
         }
@@ -129,6 +128,9 @@ char *decrypt_file(char *file, unsigned char* key) {
     FILE *out = fopen(file, "wb");
     if (out == NULL){
         printf("cannot open %s file", file); 
+        free(buffer);
+        EVP_CIPHER_CTX_free(ctx);
+        return NULL;
     }
     
     EVP_DecryptFinal_ex(ctx, buffer + size, &outlen);
@@ -138,7 +140,7 @@ char *decrypt_file(char *file, unsigned char* key) {
     EVP_CIPHER_CTX_free(ctx);
     fclose(out);
 
-    char *new_name = malloc(strlen(file) + 1); // +1 for null terminator
+    char *new_name = malloc(strlen(file) + 1);
     if (new_name == NULL) return NULL;
 
     strcpy(new_name, file);

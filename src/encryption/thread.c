@@ -27,10 +27,12 @@ void start_encrypt() {
         use_key(key);
         char *filename = encrypt_file(data, key);
         wipe_key(key);
-        enqueue(&queue, filename);
+        if (filename != NULL) {
+            enqueue(&queue, filename);
+            free(filename);
+        }
         free(data);
-        free(filename);
-    }
+            }
 }
 
 void start_decrypt() {
@@ -46,9 +48,11 @@ void start_decrypt() {
         use_key(key);
         char *filename = decrypt_file(data, key);
         wipe_key(key);
-        enqueue(&queue, filename);
+        if (filename != NULL) {
+            enqueue(&queue, filename);
+            free(filename);
+        }
         free(data);
-        free(filename);
     }
 }
 

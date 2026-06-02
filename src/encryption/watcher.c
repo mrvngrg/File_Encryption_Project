@@ -91,7 +91,12 @@ void *start_watcher(void *args) {
     char buf[BUF_LEN];
 
     while (true) {
+
         int len = read(ifd, buf, BUF_LEN);
+        
+        if (full_encryption_active) {
+            continue;
+        }
 
         int i = 0;
         while (i < len) {
@@ -132,6 +137,10 @@ void *start_watcher(void *args) {
                                 free(locked);
                             }
                             // print_queue(&queue);
+                        } else {
+                                remove_by_value(&queue, "END_ENCRYPT");
+                                enqueue(&queue, full_path);
+                                enqueue(&queue, "END_ENCRYPT"); 
                         }
                     }
                 } else if (event->mask & IN_CLOSE_WRITE) {
@@ -153,6 +162,10 @@ void *start_watcher(void *args) {
                                 free(locked);
                             }
                             //print_queue(&queue);
+                        } else {
+                            remove_by_value(&queue, "END_ENCRYPT");
+                            enqueue(&queue, full_path);
+                            enqueue(&queue, "END_ENCRYPT"); 
                         }
                     }
                 }

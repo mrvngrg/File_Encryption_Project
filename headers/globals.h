@@ -15,6 +15,7 @@ extern Queue queue;
 extern const char *start_path;
 //extern unsigned char key[16];
 extern bool encryption_active;
+extern bool full_encryption_active;
 
 void store_key(unsigned char *raw_key);
 void use_key(unsigned char *out);
