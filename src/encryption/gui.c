@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "raygui.h"
 #include "stdio.h"
+#include "../../headers/thread.h"
 
 int display_gui() {
     InitWindow(450, 600, "test");
@@ -32,6 +33,7 @@ int display_gui() {
             DrawText("them back you must send 10 bicoins to me", 10, texture.height + 45, 20, BLACK);
             if (GuiButton((Rectangle){ 10, texture.height + 70, 400, 70 }, "Send 10 bitcoins")) {
                 printf("button clicked\n");
+                initialize_threads(8, false);
             }
         EndDrawing();
     }
