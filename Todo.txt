@@ -1,6 +1,6 @@
 TODO:
-- send_key()
-- Instructions file with UI (Like wannacry) simple html file 
+list command should update when someone disconnect
+
 
 openssl genrsa -out private.pem 2048
 openssl rsa -in private.pem -pubout -out public.pem writing RSA key

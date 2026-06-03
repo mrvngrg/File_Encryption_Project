@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "../../server_headers/socket_queue.h"
 
@@ -49,4 +48,27 @@ int dequeue(Queue *q) {
 
     free(temp);
     return data;
+}
+
+void remove_by_value(Queue *q, int value) {
+
+    pthread_mutex_lock(&q->lock);
+
+    Node *curr = q->head;
+    Node *prev = NULL;
+
+    while (curr != NULL) {
+        if (curr->socketfd == value) {
+            if (prev == NULL) q->head = curr->next;
+            else prev->next = curr->next;
+            if (curr == q->tail) q->tail = prev;
+            free(curr);
+            break;
+        }
+        prev = curr;
+        curr = curr->next;
+    }
+
+    pthread_mutex_unlock(&q->lock);
+
 }

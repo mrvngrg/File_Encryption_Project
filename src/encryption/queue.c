@@ -130,6 +130,7 @@ char *peek_and_dequeue(Queue *q, const char *end){
     pthread_mutex_lock(&q->lock);
 
     if (q->head == NULL || strcmp(q -> head -> data, end) == 0) {
+        //printf("peek_and_dequeue: hit sentinel '%s' at head\n", q->head->data);
         pthread_mutex_unlock(&q->lock);
         return NULL;
     }

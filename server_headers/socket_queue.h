@@ -19,4 +19,6 @@ void enqueue(Queue *q, int socketfd);
 
 int dequeue(Queue *q);
 
+void remove_by_value(Queue *q, int value);
+
 #endif  
