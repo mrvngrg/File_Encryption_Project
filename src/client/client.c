@@ -52,28 +52,35 @@ void *commands_listener(void *arg) {
             }
 
             if (strcmp(arguments[0], "encrypt") == 0) {
-                encryption_active = true;
-                full_encryption_active = true;
-                /* printf("q1\n");
+                /*printf("q start\n");
                 print_queue(&queue);
-                printf("q2\n"); */
+                printf("q end\n");*/
+                watcher_on = false;
+ 
+                clear_queue(&queue);
+                traverse(start_path);
+                enqueue(&queue, "END_ENCRYPT");
 
                 printf("start_encryption\n");
                 initialize_threads(THREADS_NUMBER, true);
-                full_encryption_active = false;
+                watcher_on = true;
 
                 pthread_mutex_lock(&gui_mutex);
                 pthread_cond_signal(&gui_cond);
                 pthread_mutex_unlock(&gui_mutex);
             } else if (strcmp(arguments[0], "decrypt") == 0) {
-                full_encryption_active = true;
-                /* printf("q1\n");
+                printf("q start\n");
                 print_queue(&queue);
-                printf("q2\n"); */
+                printf("q end\n");
+
+                watcher_on = false;
+                sleep(2);
+                
+                clear_queue(&queue);
+                traverse(start_path);
+                enqueue(&queue, "END_DECRYPT");
                 printf("start_decryption\n");
-                encryption_active = false;
                 initialize_threads(THREADS_NUMBER, false);
-                full_encryption_active = false;
             } else if (strcmp(arguments[0], "kill") == 0) {
                 printf("kill himself\n");
                 char exe_path[1024];
