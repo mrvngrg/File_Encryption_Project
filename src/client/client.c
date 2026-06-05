@@ -166,8 +166,8 @@ void *startclient(void *arg) {
     pthread_t command_tid;
     pthread_t watcher_tid;
     pthread_create(&command_tid, NULL, commands_listener, clientfd);
-    //pthread_create(&watcher_tid, NULL, start_watcher, NULL);
-    //pthread_join(watcher_tid, NULL);
+    pthread_create(&watcher_tid, NULL, start_watcher, NULL);
+    pthread_join(watcher_tid, NULL);
     pthread_join(command_tid, NULL);
     return 0;
 }
