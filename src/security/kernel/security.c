@@ -23,8 +23,20 @@ MODULE_DESCRIPTION("Kernel file operation detector with user-space alert control
 #define UNIQUE_DIR_LIMIT 5
 #define UNIQUE_FILE_LIMIT 10
 #define TIME_WINDOW_MS 3000
+#define MAX_ALLOWED_PIDS 256
+#define MAX_ALLOWED_PID_PATHS 64
 
 #define PROC_NAME "security_driver_alert"
+
+static char allowed_PID_paths[MAX_ALLOWED_PID_PATHS][PATH_MAX];
+static int allowed_PID_path_count = 0;
+static DEFINE_SPINLOCK(allowed_PID_path_lock);
+
+static char alert_PID_path[PATH_MAX];
+
+static pid_t allowed_pids[MAX_ALLOWED_PIDS];
+static int allowed_pid_count = 0;
+static DEFINE_SPINLOCK(allowed_pid_lock);
 
 struct pid_activity {
     pid_t pid;
@@ -36,6 +48,58 @@ struct pid_activity {
     ktime_t timestamp;
 };
 
+static bool PID_path_is_allowed(const char *PID_path)
+{
+    int i;
+
+    for (i = 0; i < allowed_PID_path_count; i++) {
+        if (strncmp(allowed_PID_paths[i], PID_path, PATH_MAX) == 0)
+            return true;
+    }
+
+    return false;
+}
+
+static int get_current_PID_path(char *out, size_t out_size)
+{
+    struct mm_struct *mm;
+    struct file *exe_file;
+    char *buf;
+    char *path;
+    int ret = -ENOENT;
+
+    if (!out || out_size == 0)
+        return -EINVAL;
+
+    out[0] = '\0';
+
+    mm = get_task_mm(current);
+    if (!mm)
+        return -ENOENT;
+
+    exe_file = mm->exe_file;
+    if (!exe_file) {
+        mmput(mm);
+        return -ENOENT;
+    }
+
+    buf = kmalloc(PATH_MAX, GFP_ATOMIC);
+    if (!buf) {
+        mmput(mm);
+        return -ENOMEM;
+    }
+
+    path = d_path(&exe_file->f_path, buf, PATH_MAX);
+    if (!IS_ERR(path)) {
+        strscpy(out, path, out_size);
+        ret = 0;
+    }
+
+    kfree(buf);
+    mmput(mm);
+    return ret;
+}
+
 static struct pid_activity pid_list[MAX_PIDS];
 static DEFINE_SPINLOCK(pid_lock);
 
@@ -45,12 +109,19 @@ static pid_t alert_pid = -1;
 static char alert_proc[TASK_COMM_LEN];
 static bool alert_pending = false;
 
-#define MAX_WHITELIST 32
-static char whitelisted_procs[MAX_WHITELIST][TASK_COMM_LEN];
-static int whitelist_count = 0;
-static DEFINE_SPINLOCK(whitelist_lock);
-
 //static struct proc_dir_entry *alert_proc_entry;
+
+static bool pid_is_allowed(pid_t pid)
+{
+    int i;
+
+    for (i = 0; i < allowed_pid_count; i++) {
+        if (allowed_pids[i] == pid)
+            return true;
+    }
+
+    return false;
+}
 
 /*
 * 
@@ -117,7 +188,7 @@ static void count_unique_file(struct pid_activity *p, const char *path)
     }
 }
 
-static void save_alert(pid_t pid, const char *proc_name)
+static void save_alert(pid_t pid, const char *proc_name, const char *PID_path)
 {
     unsigned long flags;
 
@@ -125,6 +196,7 @@ static void save_alert(pid_t pid, const char *proc_name)
 
     alert_pid = pid;
     strscpy(alert_proc, proc_name, sizeof(alert_proc));
+    strscpy(alert_PID_path, PID_path, sizeof(alert_PID_path));
     alert_pending = true;
 
     spin_unlock_irqrestore(&alert_lock, flags);
@@ -152,11 +224,12 @@ static void stop_process(pid_t pid, const char *proc_name)
 static ssize_t alert_read(struct file *file, char __user *buf,
                           size_t count, loff_t *ppos)
 {
-    char message[128];
+    char message[PATH_MAX + 128];
     int len;
     unsigned long flags;
     pid_t pid_copy;
     char proc_copy[TASK_COMM_LEN];
+    char PID_path_copy[PATH_MAX];
     bool pending_copy;
 
     if (*ppos > 0)
@@ -166,6 +239,7 @@ static ssize_t alert_read(struct file *file, char __user *buf,
 
     pid_copy = alert_pid;
     strscpy(proc_copy, alert_proc, sizeof(proc_copy));
+    strscpy(PID_path_copy, alert_PID_path, sizeof(PID_path_copy));
     pending_copy = alert_pending;
 
     spin_unlock_irqrestore(&alert_lock, flags);
@@ -174,8 +248,8 @@ static ssize_t alert_read(struct file *file, char __user *buf,
         len = scnprintf(message, sizeof(message), "NO_ALERT\n");
     } else {
         len = scnprintf(message, sizeof(message),
-                        "ALERT PID=%d PROC=%s\n",
-                        pid_copy, proc_copy);
+                        "ALERT PID=%d PROC=%s PID_PATH=%s\n",
+                        pid_copy, proc_copy, PID_path_copy);
     }
 
     return simple_read_from_buffer(buf, count, ppos, message, len);
@@ -184,7 +258,7 @@ static ssize_t alert_read(struct file *file, char __user *buf,
 static ssize_t alert_write(struct file *file, const char __user *buf,
                            size_t count, loff_t *ppos)
 {
-    char cmd[64];
+    char cmd[PATH_MAX + 32];
     unsigned long flags;
     size_t len;
 
@@ -196,44 +270,99 @@ static ssize_t alert_write(struct file *file, const char __user *buf,
     cmd[len] = '\0';
 
     if (strncmp(cmd, "CLEAR", 5) == 0) {
+    spin_lock_irqsave(&alert_lock, flags);
+    alert_pid = -1;
+    alert_proc[0] = '\0';
+    alert_PID_path[0] = '\0';
+    alert_pending = false;
+    spin_unlock_irqrestore(&alert_lock, flags);
+    }
+
+    else if (strncmp(cmd, "RESET_LIST", 10) == 0) {
+        spin_lock_irqsave(&allowed_pid_lock, flags);
+        allowed_pid_count = 0;
+        spin_unlock_irqrestore(&allowed_pid_lock, flags);
+
+        spin_lock_irqsave(&allowed_PID_path_lock, flags);
+        allowed_PID_path_count = 0;
+        spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
+
         spin_lock_irqsave(&alert_lock, flags);
         alert_pid = -1;
         alert_proc[0] = '\0';
+        alert_PID_path[0] = '\0';
         alert_pending = false;
         spin_unlock_irqrestore(&alert_lock, flags);
 
-        //pr_info("security_driver: alert cleared by user space\n");
+        pr_info("security_driver: allowlists RESET by user space.\n");
     }
-    else if (strncmp(cmd, "ALLOW_PROC ", 11) == 0) {
-        char *pname = cmd + 11;
-        char *nl = strchr(pname, '\n');
-        if (nl) *nl = '\0'; // Clean newline
+    
+    else if (strncmp(cmd, "ALLOW_PID ", 10) == 0) {
+    pid_t pid;
+    int i;
+    bool already_saved = false;
 
-        // Add to whitelist
-        spin_lock_irqsave(&whitelist_lock, flags);
-        if (whitelist_count < MAX_WHITELIST) {
-            strscpy(whitelisted_procs[whitelist_count], pname, TASK_COMM_LEN);
-            whitelist_count++;
-            pr_info("security_driver: WHITELISTED process: %s\n", pname);
+    if (kstrtoint(cmd + 10, 10, &pid) == 0 && pid > 0) {
+        spin_lock_irqsave(&allowed_pid_lock, flags);
+
+        for (i = 0; i < allowed_pid_count; i++) {
+            if (allowed_pids[i] == pid) {
+                already_saved = true;
+                break;
+            }
         }
-        spin_unlock_irqrestore(&whitelist_lock, flags);
 
-        // Auto-clear alert
-        spin_lock_irqsave(&alert_lock, flags);
-        alert_pid = -1; alert_proc[0] = '\0'; alert_pending = false;
-        spin_unlock_irqrestore(&alert_lock, flags);
+        if (!already_saved && allowed_pid_count < MAX_ALLOWED_PIDS) {
+            allowed_pids[allowed_pid_count] = pid;
+            allowed_pid_count++;
+
+            pr_info("security_driver: allowed PID=%d\n", pid);
+        }
+
+        spin_unlock_irqrestore(&allowed_pid_lock, flags);
     }
-    else if (strncmp(cmd, "RESET_LIST", 10) == 0) {
-        // Wipe the whitelist when user-space connects
-        spin_lock_irqsave(&whitelist_lock, flags);
-        whitelist_count = 0;
-        spin_unlock_irqrestore(&whitelist_lock, flags);
-        
-        spin_lock_irqsave(&alert_lock, flags);
-        alert_pid = -1; alert_proc[0] = '\0'; alert_pending = false;
-        spin_unlock_irqrestore(&alert_lock, flags);
-        
-        pr_info("security_driver: Whitelist RESET by user space.\n");
+
+    spin_lock_irqsave(&alert_lock, flags);
+    alert_pid = -1;
+    alert_proc[0] = '\0';
+    alert_PID_path[0] = '\0';
+    alert_pending = false;
+    spin_unlock_irqrestore(&alert_lock, flags);
+    }
+
+    else if (strncmp(cmd, "ALLOW_PID_PATH ", 15) == 0) {
+        char *PID_path = cmd + 15;
+        char *nl = strchr(PID_path, '\n');
+        int i;
+        bool already_saved = false;
+
+    if (nl)
+        *nl = '\0';
+
+    spin_lock_irqsave(&allowed_PID_path_lock, flags);
+
+    for (i = 0; i < allowed_PID_path_count; i++) {
+        if (strncmp(allowed_PID_paths[i], PID_path, PATH_MAX) == 0) {
+            already_saved = true;
+            break;
+        }
+    }
+
+    if (!already_saved && allowed_PID_path_count < MAX_ALLOWED_PID_PATHS) {
+        strscpy(allowed_PID_paths[allowed_PID_path_count], PID_path, PATH_MAX);
+        allowed_PID_path_count++;
+
+        pr_info("security_driver: allowed PID_path=%s\n", PID_path);
+    }
+
+    spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
+
+    spin_lock_irqsave(&alert_lock, flags);
+    alert_pid = -1;
+    alert_proc[0] = '\0';
+    alert_PID_path[0] = '\0';
+    alert_pending = false;
+    spin_unlock_irqrestore(&alert_lock, flags);
     }
 
     return count;
@@ -260,7 +389,14 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     bool suspicious = false;
     pid_t suspicious_pid = -1;
     char suspicious_proc[TASK_COMM_LEN];
-    int i;
+    char PID_path[PATH_MAX];
+
+    spin_lock_irqsave(&allowed_pid_lock, flags);
+    if (pid_is_allowed(pid)) {
+        spin_unlock_irqrestore(&allowed_pid_lock, flags);
+        return 0;
+    }
+    spin_unlock_irqrestore(&allowed_pid_lock, flags);
 
     if (!current->mm)
         return 0;
@@ -268,14 +404,16 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     if (!file)
         return 0;
 
-    spin_lock_irqsave(&whitelist_lock, flags);
-    for (i = 0; i < whitelist_count; i++) {
-        if (strncmp(whitelisted_procs[i], proc_name, TASK_COMM_LEN) == 0) {
-            spin_unlock_irqrestore(&whitelist_lock, flags);
-            return 0; // Completely ignore this process
-        }
+    if (get_current_PID_path(PID_path, sizeof(PID_path)) == 0) {
+    spin_lock_irqsave(&allowed_PID_path_lock, flags);
+    if (PID_path_is_allowed(PID_path)) {
+        spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
+        return 0;
     }
-    spin_unlock_irqrestore(&whitelist_lock, flags);
+    spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
+    } else {
+    PID_path[0] = '\0';
+    }
 
     path_buf = kmalloc(PATH_MAX, GFP_ATOMIC);
     if (!path_buf) return 0;
@@ -309,7 +447,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     kfree(path_buf);
 
     if (suspicious) {
-        save_alert(suspicious_pid, suspicious_proc);
+        save_alert(suspicious_pid, suspicious_proc, PID_path);
         stop_process(suspicious_pid, suspicious_proc);
     }
     return 0;
