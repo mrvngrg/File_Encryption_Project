@@ -1,0 +1,5 @@
+sudo apt install dwarves
+
+sudo insmod security.ko
+sudo dmesg -w
+sudo rmmod security
