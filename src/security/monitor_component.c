@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <dirent.h>
 
 #define TIME_WINDOW 1
 #define PIDS 256
@@ -23,6 +24,172 @@
 #define HEADER_MISMATCH_LIMIT 3
 
 #define FILES_PER_PID 15
+
+volatile sig_atomic_t keep_running = 1;
+char canary_path[PATH_MAX];
+bool active_canary = false;
+
+/*
+ * Signal handler to safely catch exit commands
+
+ */
+void sigint_handler(int signum) {
+    printf("\n\n[!] Stopping monitor... Cleaning up traps safely.\n");
+    keep_running = 0; 
+}
+
+/*
+ * Extracts the file extension from a given file path.
+ */
+static const char *get_file_extension(const char *path) {
+    if (path == NULL) return NULL;
+    const char *filename = strrchr(path, '/');
+    if (filename != NULL) filename++;
+    else filename = path;
+    const char *dotOfExtension = strrchr(filename, '.');
+    if (dotOfExtension == NULL || dotOfExtension == filename) return NULL;
+    return dotOfExtension + 1;
+}
+
+/*
+ * Compares a file extension against an expected string.
+ */
+static bool compare_extension_ignore_case(const char *extension, const char *expected_extension) {
+    if (!extension || !expected_extension) return false;
+    while (*extension && *expected_extension) {
+        if (tolower((unsigned char)*extension) != tolower((unsigned char)*expected_extension)) return false;
+        extension++;
+        expected_extension++;
+    }
+    return *extension == '\0' && *expected_extension == '\0';
+}
+
+/*
+ * Scans a directory for an existing PDF file to use as a cloning template.
+ */
+bool find_existing_pdf(const char *base_path, char *found_path, char *found_name) {
+    DIR *dir = opendir(base_path);
+    if (!dir) {
+        printf("[-] Failed to open directory '%s'. OS Error: %s\n", base_path, strerror(errno));
+        return false;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.' || strstr(entry->d_name, "(copy)") != NULL) {
+            continue;
+        }
+
+        char full_entry_path[PATH_MAX];
+        snprintf(full_entry_path, PATH_MAX, "%s/%s", base_path, entry->d_name);
+
+        struct stat path_stat;
+        if (stat(full_entry_path, &path_stat) == 0) {
+            if (S_ISREG(path_stat.st_mode)) { 
+                const char *ext = get_file_extension(entry->d_name);
+                if (ext && compare_extension_ignore_case(ext, "pdf")) {
+                    strncpy(found_path, full_entry_path, PATH_MAX);
+                    strncpy(found_name, entry->d_name, 256);
+                    closedir(dir);
+                    return true;
+                }
+            }
+        }
+    }
+    closedir(dir);
+    return false;
+}
+
+/*
+ * Deploys a disguised Canary file by creating a bit-for-bit clone of an existing document.
+ */
+void deploy_canary(const char *base_path) {
+    char src_pdf[PATH_MAX];
+    char src_name[256];
+    
+    if (find_existing_pdf(base_path, src_pdf, src_name)) {
+        
+        char *dot = strrchr(src_name, '.');
+        if (dot) {
+            char base_name[256];
+            size_t base_len = dot - src_name;
+            if (base_len >= sizeof(base_name)) base_len = sizeof(base_name) - 1;
+            
+            strncpy(base_name, src_name, base_len);
+            base_name[base_len] = '\0';
+            
+            snprintf(canary_path, PATH_MAX, "%s/%s(copy)%s", base_path, base_name, dot);
+        } else {
+            // Fallback if no extension exists
+            snprintf(canary_path, PATH_MAX, "%s/%s(copy)", base_path, src_name);
+        }
+        
+        unlink(canary_path); 
+        
+        printf("[*] Found existing PDF for cloning: %s\n", src_pdf);
+        
+        FILE *src = fopen(src_pdf, "rb");
+        if (!src) {
+            printf("[-] CRITICAL: Failed to open source file for reading.\n");
+            printf("[-] OS Error: %s\n", strerror(errno));
+            return;
+        }
+
+        FILE *dst = fopen(canary_path, "wb");
+        if (!dst) {
+            printf("[-] CRITICAL: Failed to create destination Canary file.\n");
+            printf("[-] OS Error: %s\n", strerror(errno));
+            fclose(src);
+            return;
+        }
+        
+        char buffer[4096];
+        size_t bytes_read;
+        size_t total_written = 0;
+
+        while ((bytes_read = fread(buffer, 1, sizeof(buffer), src)) > 0) {
+            size_t written = fwrite(buffer, 1, bytes_read, dst);
+            if (written != bytes_read) {
+                printf("[-] CRITICAL: Write error during file cloning.\n");
+                printf("[-] OS Error: %s\n", strerror(errno));
+                break;
+            }
+            total_written += written;
+        }
+
+        active_canary = true;
+        printf("[+] Successfully cloned %zu bytes.\n", total_written);
+        printf("[+] Deployed Disguised Canary: %s\n", canary_path);
+        
+        fclose(src);
+        fclose(dst);
+    } 
+    else {
+        printf("[-] ABORT: No existing PDFs found in directory to clone.\n");
+        printf("[-] Monitor is running, but Canary trap is NOT active.\n");
+    }
+}
+
+/*
+ * Deletes the dynamically generated Canary file.
+ */
+void cleanup_canary() {
+    if (active_canary) {
+        if (unlink(canary_path) == 0) {
+            printf("[+] Cleaned up Canary successfully.\n");
+        }
+    }
+}
+
+/*
+ * Checks if a given file path matches the active Canary trap.
+ */
+bool is_canary_file(const char *file_path) {
+    if (active_canary && strcmp(file_path, canary_path) == 0) {
+        return true;
+    }
+    return false;
+}
 
 
 /*
@@ -57,6 +224,7 @@ struct pid_activity {
 
 /*
 * List of processes being tracked
+
 */
 static struct pid_activity PID_List[PIDS];
 
@@ -108,7 +276,7 @@ static void count_unique_file(struct pid_activity *p, const char *file_path) {
 }
 /*
 * Get extension from path
-*/
+
 static const char *get_file_extension(const char *path) {
     if (path == NULL) {
         return NULL;
@@ -129,11 +297,11 @@ static const char *get_file_extension(const char *path) {
     }
 
     return dotOfExtension + 1;
-}
+}*/
 
 /*
 * Ignores case when comparing the file extension with the expected one
-*/
+
 static bool compare_extension_ignore_case(const char *extension, const char *expected_extension) {
     if (!extension || !expected_extension) {
         return false;
@@ -153,73 +321,34 @@ static bool compare_extension_ignore_case(const char *extension, const char *exp
     return *extension == '\0' &&
            *expected_extension == '\0';
 }
-
+*/
 
 /*
 * Checks if a file has the expected header based on its extension
 */
 static bool file_has_expected_header(const char *file_path) {
     const char *extension = get_file_extension(file_path);
-
-    if (!extension) {
-        return true;
-    }
-
+    if (!extension) return true;
     unsigned char buf[32];
-
     int fd = open(file_path, O_RDONLY | O_CLOEXEC);
-    if (fd == -1) {
-        return true;
-    }
-
+    if (fd == -1) return true;
     ssize_t n = read(fd, buf, sizeof(buf));
     close(fd);
+    if (n <= 0) return true;
 
-    if (n <= 0) {
-        return true;
-    }
-
-    /*
-     * PDF: %PDF
-     */
     if (compare_extension_ignore_case(extension, "pdf")) {
         return n >= 4 && memcmp(buf, "%PDF", 4) == 0;
     }
-
-    /*
-     * PNG: 89 50 4E 47 0D 0A 1A 0A
-     */
     if (compare_extension_ignore_case(extension, "png")) {
-        static const unsigned char png_magic[8] = {
-            0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A
-        };
-
+        static const unsigned char png_magic[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
         return n >= 8 && memcmp(buf, png_magic, 8) == 0;
     }
-
-    /*
-     * JPEG: FF D8 FF
-     */
     if (compare_extension_ignore_case(extension, "jpg") || compare_extension_ignore_case(extension, "jpeg")) {
-        return n >= 3 &&
-               buf[0] == 0xFF &&
-               buf[1] == 0xD8 &&
-               buf[2] == 0xFF;
+        return n >= 3 && buf[0] == 0xFF && buf[1] == 0xD8 && buf[2] == 0xFF;
     }
-
-    /*
-     * GIF: GIF87a or GIF89a
-     */
     if (compare_extension_ignore_case(extension, "gif")) {
-        return n >= 6 &&
-               (memcmp(buf, "GIF87a", 6) == 0 ||
-                memcmp(buf, "GIF89a", 6) == 0);
+        return n >= 6 && (memcmp(buf, "GIF87a", 6) == 0 || memcmp(buf, "GIF89a", 6) == 0);
     }
-
-    /*
-     * ZIP-based formats: zip, docx, xlsx, pptx, odt, ods, odp
-     * normally: PK
-     */
     if (compare_extension_ignore_case(extension, "zip")  ||
         compare_extension_ignore_case(extension, "docx") ||
         compare_extension_ignore_case(extension, "xlsx") ||
@@ -228,18 +357,11 @@ static bool file_has_expected_header(const char *file_path) {
         compare_extension_ignore_case(extension, "ods")  ||
         compare_extension_ignore_case(extension, "odp")) {
         return n >= 2 && buf[0] == 'P' && buf[1] == 'K';
-    }
 
-    /*
-     * SQLite databases
-     */
+    }
     if (compare_extension_ignore_case(extension, "sqlite") || compare_extension_ignore_case(extension, "db")) {
         return n >= 15 && memcmp(buf, "SQLite format 3", 15) == 0;
     }
-
-    /*
-     * Unknown extension: Do not count as suspicious
-     */
     return true;
 }
 
@@ -372,6 +494,15 @@ int main(int argc, char *argv[]) {
 
     const char *path = argv[1];
 
+    struct sigaction sa;
+    sa.sa_handler = sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+
+    deploy_canary(path);
+
     int fan_fd = fanotify_init(FAN_CLASS_NOTIF | FAN_CLOEXEC, O_RDONLY | O_LARGEFILE);
     if (fan_fd == -1) {
         perror("fanotify_init");
@@ -401,11 +532,10 @@ int main(int argc, char *argv[]) {
 
     char buffer[8192];
 
-    for (;;) {
+    while (keep_running) {
         ssize_t len = read(fan_fd, buffer, sizeof(buffer));
         if (len == -1) {
-            if (errno == EINTR)
-                continue;
+            if (errno == EINTR) continue; 
             perror("read");
             break;
         }
@@ -417,8 +547,8 @@ int main(int argc, char *argv[]) {
 
             if (metadata->vers != FANOTIFY_METADATA_VERSION) {
                 fprintf(stderr, "fanotify metadata version mismatch\n");
-                close(fan_fd);
-                return 1;
+                keep_running = 0;
+                break;
             }
 
             if (metadata->fd == FAN_NOFD) {
@@ -460,5 +590,7 @@ int main(int argc, char *argv[]) {
     }
 
     close(fan_fd);
+    cleanup_canary();
+    printf("Monitor exited.\n");
     return 0;
 }
