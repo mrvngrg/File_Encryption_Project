@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "time.h" 
 
 #include "../../headers/encryption.h"
 #include "../../headers/globals.h"
@@ -111,8 +112,9 @@ int main() {
     pthread_cond_wait(&gui_cond, &gui_mutex);
     pthread_mutex_unlock(&gui_mutex);
 
+    time_t start_time = time(NULL);
     while(encryption_active == true) {
-        display_gui();
+        display_gui(start_time);
     }
     
     pthread_join(client_tid, NULL);
