@@ -1,1 +1,2 @@
-int display_gui();
+#include "time.h"
+int display_gui(time_t startime);
