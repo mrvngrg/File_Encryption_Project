@@ -26,3 +26,12 @@ encryption
 server
 monitor
 watcher
+# security files
+src/security/kernel/.*.cmd
+src/security/kernel/Module.symvers
+src/security/kernel/modules.order
+src/security/kernel/*.ko
+src/security/kernel/*.mod
+src/security/kernel/*.mod.c
+src/security/kernel/*.mod.o
+src/security/kernel/*.o
