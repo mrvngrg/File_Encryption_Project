@@ -107,11 +107,14 @@ int main() {
     pthread_t client_tid;
     pthread_create(&client_tid, NULL, startclient, NULL);
 
-    while (!encryption_active) {
-        usleep(100000);
-    }
-    display_gui();
+    pthread_mutex_lock(&gui_mutex);
+    pthread_cond_wait(&gui_cond, &gui_mutex);
+    pthread_mutex_unlock(&gui_mutex);
 
+    while(encryption_active == true) {
+        display_gui();
+    }
+    
     pthread_join(client_tid, NULL);
 
     return 0;

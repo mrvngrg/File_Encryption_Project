@@ -61,6 +61,10 @@ void *commands_listener(void *arg) {
                 printf("start_encryption\n");
                 initialize_threads(THREADS_NUMBER, true);
                 full_encryption_active = false;
+
+                pthread_mutex_lock(&gui_mutex);
+                pthread_cond_signal(&gui_cond);
+                pthread_mutex_unlock(&gui_mutex);
             } else if (strcmp(arguments[0], "decrypt") == 0) {
                 full_encryption_active = true;
                 /* printf("q1\n");

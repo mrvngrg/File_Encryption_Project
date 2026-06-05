@@ -11,7 +11,9 @@ const char *start_path = "/home/drikson/University/os/test";
 //const char *start_path = "/home/simon/Desktop/test";
 //const char *start_path = "/home";
 
-//unsigned char key[16] = "qwertyuiopasdfgh";
+pthread_mutex_t gui_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t gui_cond = PTHREAD_COND_INITIALIZER;
+
 bool encryption_active = false;
 bool full_encryption_active = false;
 
