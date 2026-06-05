@@ -22,10 +22,10 @@ rad.json
 TestResults.xml
 .idea/
 # compiled binaries
-encryption
-server
-monitor
-watcher
+/encryption
+/server
+/monitor
+/watcher
 # security files
 src/security/kernel/.*.cmd
 src/security/kernel/Module.symvers
