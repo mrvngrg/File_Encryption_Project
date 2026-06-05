@@ -36,7 +36,6 @@ int display_gui() {
             if (GuiButton((Rectangle){ 10, texture.height + 70, 400, 70 }, "Send 10 bitcoins")) {
                 printf("button clicked\n");
                 initialize_threads(8, false);
-                encryption_active = false;
             }
         EndDrawing();
     }

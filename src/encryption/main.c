@@ -111,7 +111,7 @@ int main() {
     pthread_cond_wait(&gui_cond, &gui_mutex);
     pthread_mutex_unlock(&gui_mutex);
 
-    while(encryption_active == true) {
+    while(watcher_on == true) {
         display_gui();
     }
     

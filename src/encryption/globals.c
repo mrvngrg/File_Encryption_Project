@@ -6,16 +6,16 @@
 
 Queue queue;
 //const char *start_path = "/home/nicolas-berger/Documents/Safe/test_encryption";
-const char *start_path = "/home/drikson/University/os/test";
+// const char *start_path = "/home/drikson/University/os/test";
 //const char *start_path = "/home/vboxuser/test";
-//const char *start_path = "/home/simon/Desktop/test";
+const char *start_path = "/home/simon/Desktop/test";
 //const char *start_path = "/home";
 
 pthread_mutex_t gui_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t gui_cond = PTHREAD_COND_INITIALIZER;
 
-bool encryption_active = false;
-bool full_encryption_active = false;
+// bool encryption_active = false;
+bool watcher_on = true;
 
 Key key;
 

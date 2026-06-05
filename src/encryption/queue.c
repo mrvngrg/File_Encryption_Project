@@ -158,3 +158,20 @@ int count(Queue *q) {
     }
     return count;
 }
+
+void clear_queue(Queue *q) {
+    pthread_mutex_lock(&q->lock);
+ 
+    Node *current = q->head;
+    while (current != NULL) {
+        Node *next = current->next;
+        free(current->data);
+        free(current);
+        current = next;
+    }
+ 
+    q->head = NULL;
+    q->tail = NULL;
+ 
+    pthread_mutex_unlock(&q->lock);
+}
