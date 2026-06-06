@@ -17,6 +17,8 @@ int main(void)
     double last_poll_time = 0.0;
     char status[256] = "Waiting for suspicious activity...";
 
+    bool alert_was_pending = false;
+
     InitWindow(screen_width, screen_height, "Security Controller");
     SetTargetFPS(60);
 
@@ -27,25 +29,34 @@ int main(void)
         double now = GetTime();
 
         /*
-         * Poll /proc every 0.5 seconds.
+         * Poll netlink every 0.5 seconds.
          * Do not read it every frame unnecessarily.
          */
         if (now - last_poll_time >= 0.5) {
             SecurityAlert new_alert;
 
             if (controller_read_alert(&new_alert) >= 0) {
+                bool new_alert_arrived = new_alert.pending && !alert_was_pending;
+
                 alert = new_alert;
+
+                if (new_alert_arrived) {
+                    SetWindowState(FLAG_WINDOW_TOPMOST);
+                    ClearWindowState(FLAG_WINDOW_TOPMOST);
+                }
 
                 if (alert.pending) {
                     snprintf(status, sizeof(status),
-                             "Suspicious process paused by kernel.");
+                        "Suspicious process paused by kernel.");
                 } else {
                     snprintf(status, sizeof(status),
-                             "Waiting for suspicious activity...");
+                        "Waiting for suspicious activity...");
                 }
+
+                alert_was_pending = alert.pending;
             } else {
                 snprintf(status, sizeof(status),
-                         "Could not connect to netlink. Is the kernel module loaded?");
+                    "Could not connect to netlink. Is the kernel module loaded?");
             }
 
             last_poll_time = now;
@@ -84,6 +95,7 @@ int main(void)
                 }
 
                 alert.pending = false;
+                alert_was_pending = false;
             }
 
             if (GuiButton((Rectangle){260, 340, 190, 45}, "Trust")) {
@@ -97,6 +109,7 @@ int main(void)
                 }
 
                 alert.pending = false;
+                alert_was_pending = false;
             }
 
             if (GuiButton((Rectangle){490, 340, 150, 45}, "Continue")) {
@@ -109,6 +122,7 @@ int main(void)
                 }
 
                 alert.pending = false;
+                alert_was_pending = false;
             }
         } else {
             DrawRectangleLines(30, 120, 640, 170, DARKGRAY);
