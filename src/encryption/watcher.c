@@ -7,6 +7,7 @@
 #include <sys/select.h>
 #include <dirent.h>
 #include <stdbool.h>
+#include <poll.h>
 #include "../../headers/queue.h"
 #include "../../headers/globals.h"
 #include "../../headers/encryption.h"
@@ -57,11 +58,11 @@ void watcher_traverse(int fd, const char *path) {
 
     if (wd == -1) {
         perror("inotify_add_watch");
-    } else {
-        strncpy(watchedPaths[wd], path, sizeof(watchedPaths[wd]) - 1);
-        watchedPaths[wd][sizeof(watchedPaths[wd]) - 1] = '\0';
-        printf("watching: %s\n", path);
     }
+
+    strncpy(watchedPaths[wd], path, sizeof(watchedPaths[wd]) - 1);
+    watchedPaths[wd][sizeof(watchedPaths[wd]) - 1] = '\0';
+    printf("watching: %s\n", path);
 
     DIR *dir = opendir(path);
     if (!dir) {
@@ -112,16 +113,11 @@ void *start_watcher(void *args) {
         if (clearBuffer) {
             clearBuffer = false;
             char discard[BUF_LEN];
-            fd_set readable;
-            struct timeval instant = {0, 0};
-            FD_ZERO(&readable);
-            FD_SET(fd, &readable);
-            while (select(fd +1, &readable, NULL, NULL, &instant) > 0) {
+            struct pollfd pfd = {fd, POLLIN, 0};
+            while (poll(&pfd, 1, 0) > 0)
                 read(fd, discard, BUF_LEN);
-                FD_ZERO(&readable);
-                FD_SET(fd, &readable);
-            }
         }
+
 
         int len = read(fd, buf, BUF_LEN);
 
@@ -163,18 +159,7 @@ void *start_watcher(void *args) {
                         watcher_traverse(fd, full_path);
                     }
 
-                } else if (event->mask & IN_MOVED_TO) {
-                    printf("new file: %s\n", full_path);
-                    unsigned char key[16];
-                    use_key(key);
-                    char *locked = encrypt_file((char *)full_path, key);
-                    wipe_key(key);
-                    if (locked != NULL) {
-                        enqueue(&queue, locked);
-                        free(locked);
-                    }
-                }
-                else if (event->mask & IN_MOVED_TO || event->mask & IN_CLOSE_WRITE) {
+                } else if (event->mask & IN_MOVED_TO || event->mask & IN_CLOSE_WRITE) {
                     if (!is_skipped(event->name)) {
                         printf("new file: %s\n", full_path);
                         unsigned char key[16];
@@ -186,7 +171,7 @@ void *start_watcher(void *args) {
                             free(locked);
                         }
                     }
-                }
+                } 
             }
             i += sizeof(struct inotify_event) + event->len;
         }

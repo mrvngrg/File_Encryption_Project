@@ -9,7 +9,7 @@
 #include "../../headers/encryption.h"
 #include "../../headers/globals.h"
 #include "../../headers/client.h"
-//#include "../../headers/watcher.h"
+#include "../../headers/watcher.h"
 #include "../../headers/pdf_data.h"
 #include "../../headers/gui.h"
 
@@ -66,8 +66,9 @@ void traverse(const char *path) {
     }
 
     while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        if (is_skipped(entry->d_name)){
             continue;
+        }
 
         char fullPath[1024];
         if (snprintf(fullPath, sizeof(fullPath), "%s/%s", path, entry->d_name) >= sizeof(fullPath)) {
@@ -76,8 +77,8 @@ void traverse(const char *path) {
         }
 
         struct stat statbuf;
-        if (stat(fullPath, &statbuf) == -1) {
-            perror("stat");
+        if (lstat(fullPath, &statbuf) == -1) {
+            perror("lstat");
             continue;
         }
 
