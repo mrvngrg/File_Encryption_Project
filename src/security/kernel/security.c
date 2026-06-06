@@ -25,6 +25,7 @@ MODULE_DESCRIPTION("Kernel file operation detector with user-space alert control
 #define TIME_WINDOW_MS 3000
 #define MAX_ALLOWED_PIDS 256
 #define MAX_ALLOWED_PID_PATHS 64
+#define ALERT_QUEUE_SIZE 64
 
 #define NETLINK_SECURITY 31
 
@@ -104,10 +105,19 @@ static int get_current_PID_path(char *out, size_t out_size) {
 static struct pid_activity pid_list[MAX_PIDS];
 static DEFINE_SPINLOCK(pid_lock);
 
+struct security_alert_entry {
+    pid_t pid;
+    char proc[TASK_COMM_LEN];
+    char PID_path[PATH_MAX];
+};
+
 static DEFINE_SPINLOCK(alert_lock);
 static pid_t alert_pid = -1;
 static char alert_proc[TASK_COMM_LEN];
 static bool alert_pending = false;
+
+static struct security_alert_entry alert_queue[ALERT_QUEUE_SIZE];
+static int alert_queue_count = 0;
 
 static bool pid_is_allowed(pid_t pid) {
     int i;
@@ -179,17 +189,103 @@ static void count_unique_file(struct pid_activity *p, const char *path) {
     }
 }
 
-static void save_alert(pid_t pid, const char *proc_name, const char *PID_path) {
+enum alert_add_result {
+    ALERT_DUPLICATE,
+    ALERT_ACTIVATED,
+    ALERT_QUEUED,
+    ALERT_QUEUE_FULL,
+};
+
+static bool alert_already_exists_locked(pid_t pid, const char *PID_path) {
+    int i;
+
+    if (alert_pending) {
+        if (alert_pid == pid)
+            return true;
+
+        if (PID_path && PID_path[0] != '\0' &&
+            strncmp(alert_PID_path, PID_path, PATH_MAX) == 0)
+            return true;
+    }
+
+    for (i = 0; i < alert_queue_count; i++) {
+        if (alert_queue[i].pid == pid)
+            return true;
+
+        if (PID_path && PID_path[0] != '\0' &&
+            strncmp(alert_queue[i].PID_path, PID_path, PATH_MAX) == 0)
+            return true;
+    }
+
+    return false;
+}
+
+static void clear_current_alert_locked(void) {
+    alert_pid = -1;
+    alert_proc[0] = '\0';
+    alert_PID_path[0] = '\0';
+    alert_pending = false;
+}
+
+static void pop_next_alert_locked(void) {
+    int i;
+
+    if (alert_queue_count <= 0) {
+        clear_current_alert_locked();
+        return;
+    }
+
+    alert_pid = alert_queue[0].pid;
+    strscpy(alert_proc, alert_queue[0].proc, sizeof(alert_proc));
+    strscpy(alert_PID_path, alert_queue[0].PID_path, sizeof(alert_PID_path));
+    alert_pending = true;
+
+    for (i = 1; i < alert_queue_count; i++)
+        alert_queue[i - 1] = alert_queue[i];
+
+    alert_queue_count--;
+}
+
+static enum alert_add_result enqueue_or_activate_alert(pid_t pid,
+                                                       const char *proc_name,
+                                                       const char *PID_path) {
     unsigned long flags;
+    enum alert_add_result result;
 
     spin_lock_irqsave(&alert_lock, flags);
 
-    alert_pid = pid;
-    strscpy(alert_proc, proc_name, sizeof(alert_proc));
-    strscpy(alert_PID_path, PID_path, sizeof(alert_PID_path));
-    alert_pending = true;
+    if (alert_already_exists_locked(pid, PID_path)) {
+        result = ALERT_DUPLICATE;
+        goto out;
+    }
 
+    if (!alert_pending) {
+        alert_pid = pid;
+        strscpy(alert_proc, proc_name, sizeof(alert_proc));
+        strscpy(alert_PID_path, PID_path, sizeof(alert_PID_path));
+        alert_pending = true;
+        result = ALERT_ACTIVATED;
+        goto out;
+    }
+
+    if (alert_queue_count < ALERT_QUEUE_SIZE) {
+        alert_queue[alert_queue_count].pid = pid;
+        strscpy(alert_queue[alert_queue_count].proc,
+                proc_name,
+                sizeof(alert_queue[alert_queue_count].proc));
+        strscpy(alert_queue[alert_queue_count].PID_path,
+                PID_path,
+                sizeof(alert_queue[alert_queue_count].PID_path));
+        alert_queue_count++;
+        result = ALERT_QUEUED;
+        goto out;
+    }
+
+    result = ALERT_QUEUE_FULL;
+
+out:
     spin_unlock_irqrestore(&alert_lock, flags);
+    return result;
 }
 
 static int signal_process(pid_t pid, int sig, const char *reason) {
@@ -212,18 +308,24 @@ static int signal_process(pid_t pid, int sig, const char *reason) {
     return ret;
 }
 
-static void stop_process(pid_t pid, const char *proc_name){
+static void stop_process(pid_t pid, const char *proc_name) {
     signal_process(pid, SIGSTOP, proc_name);
 }
 
-static void clear_current_alert(void) {
+static void finish_current_alert_and_pop_next(void) {
     unsigned long flags;
 
     spin_lock_irqsave(&alert_lock, flags);
-    alert_pid = -1;
-    alert_proc[0] = '\0';
-    alert_PID_path[0] = '\0';
-    alert_pending = false;
+    pop_next_alert_locked();
+    spin_unlock_irqrestore(&alert_lock, flags);
+}
+
+static void clear_all_alerts(void) {
+    unsigned long flags;
+
+    spin_lock_irqsave(&alert_lock, flags);
+    clear_current_alert_locked();
+    alert_queue_count = 0;
     spin_unlock_irqrestore(&alert_lock, flags);
 }
 
@@ -238,7 +340,7 @@ static void reset_allowlists(void) {
     allowed_PID_path_count = 0;
     spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
 
-    clear_current_alert();
+    clear_all_alerts();
     pr_info("security_driver: allowlists RESET by user space.\n");
 }
 
@@ -266,6 +368,55 @@ static void allow_pid_path(const char *PID_path) {
     }
 
     spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
+}
+
+static int trust_current_alert_and_cleanup_queue(const char *trusted_path,
+                                                 pid_t *current_pid_out,
+                                                 pid_t *continue_pids,
+                                                 int max_continue_pids) {
+    unsigned long flags;
+    pid_t trusted_pid = -1;
+    int read_i;
+    int write_i = 0;
+    int continue_count = 0;
+
+    spin_lock_irqsave(&alert_lock, flags);
+
+    if (alert_pending)
+        trusted_pid = alert_pid;
+
+    if (current_pid_out)
+        *current_pid_out = trusted_pid;
+
+    for (read_i = 0; read_i < alert_queue_count; read_i++) {
+        bool remove = false;
+
+        if (trusted_pid > 0 && alert_queue[read_i].pid == trusted_pid)
+            remove = true;
+
+        if (trusted_path && trusted_path[0] != '\0' &&
+            strncmp(alert_queue[read_i].PID_path, trusted_path, PATH_MAX) == 0)
+            remove = true;
+
+        if (remove) {
+            if (continue_count < max_continue_pids)
+                continue_pids[continue_count++] = alert_queue[read_i].pid;
+            continue;
+        }
+
+        if (write_i != read_i)
+            alert_queue[write_i] = alert_queue[read_i];
+
+        write_i++;
+    }
+
+    alert_queue_count = write_i;
+
+    pop_next_alert_locked();
+
+    spin_unlock_irqrestore(&alert_lock, flags);
+
+    return continue_count;
 }
 
 static void build_alert_message(char *message, size_t size) {
@@ -350,7 +501,7 @@ static void nl_recv_msg(struct sk_buff *skb) {
     }
 
     else if (strncmp(cmd, "CLEAR", 5) == 0) {
-        clear_current_alert();
+        finish_current_alert_and_pop_next();
         nl_send_current_alert();
     }
 
@@ -363,7 +514,7 @@ static void nl_recv_msg(struct sk_buff *skb) {
         if (kstrtoint(cmd + 5, 10, &pid) == 0 && pid > 0)
             signal_process(pid, SIGKILL, "user kill");
 
-        clear_current_alert();
+        finish_current_alert_and_pop_next();
         nl_send_current_alert();
     }
 
@@ -371,7 +522,7 @@ static void nl_recv_msg(struct sk_buff *skb) {
         if (kstrtoint(cmd + 9, 10, &pid) == 0 && pid > 0)
             signal_process(pid, SIGCONT, "user continue");
 
-        clear_current_alert();
+        finish_current_alert_and_pop_next();
         nl_send_current_alert();
     }
 
@@ -384,17 +535,25 @@ static void nl_recv_msg(struct sk_buff *skb) {
         allow_pid_path(PID_path);
 
         {
-            unsigned long flags;
+            pid_t continue_pids[ALERT_QUEUE_SIZE];
+            int continue_count;
+            int i;
 
-            spin_lock_irqsave(&alert_lock, flags);
-            pid = alert_pid;
-            spin_unlock_irqrestore(&alert_lock, flags);
+            continue_count = trust_current_alert_and_cleanup_queue(PID_path,
+                                                                  &pid,
+                                                                  continue_pids,
+                                                                  ALERT_QUEUE_SIZE);
+
+            if (pid > 0)
+                signal_process(pid, SIGCONT, "trusted path");
+
+            for (i = 0; i < continue_count; i++) {
+                if (continue_pids[i] > 0)
+                    signal_process(continue_pids[i], SIGCONT,
+                                   "trusted queued path");
+            }
         }
 
-        if (pid > 0)
-            signal_process(pid, SIGCONT, "trusted path");
-
-        clear_current_alert();
         nl_send_current_alert();
     }
 }
@@ -472,9 +631,23 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs) {
     kfree(path_buf);
 
     if (suspicious) {
-        save_alert(suspicious_pid, suspicious_proc, PID_path);
-        stop_process(suspicious_pid, suspicious_proc);
-        nl_send_current_alert();
+        enum alert_add_result add_result;
+
+        add_result = enqueue_or_activate_alert(suspicious_pid,
+                                               suspicious_proc,
+                                               PID_path);
+
+        if (add_result == ALERT_ACTIVATED || add_result == ALERT_QUEUED)
+            stop_process(suspicious_pid, suspicious_proc);
+
+        if (add_result == ALERT_ACTIVATED)
+            nl_send_current_alert();
+        else if (add_result == ALERT_DUPLICATE)
+            pr_info("security_driver: duplicate alert ignored PID=%d path=%s\n",
+                    suspicious_pid, PID_path);
+        else if (add_result == ALERT_QUEUE_FULL)
+            pr_warn("security_driver: alert queue full, dropping PID=%d path=%s\n",
+                    suspicious_pid, PID_path);
     }
     return 0;
 }
@@ -490,6 +663,7 @@ static int __init mod_init(void) {
     memset(pid_list, 0, sizeof(pid_list));
     alert_proc[0] = '\0';
     alert_PID_path[0] = '\0';
+    alert_queue_count = 0;
     user_portid = 0;
 
     nl_sk = netlink_kernel_create(&init_net, NETLINK_SECURITY, &cfg);
