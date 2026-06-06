@@ -88,7 +88,7 @@ int main(void)
                 alert.pending = false;
             }
 
-            if (GuiButton((Rectangle){260, 340, 190, 45}, "Allow Path")) {
+            if (GuiButton((Rectangle){260, 340, 190, 45}, "Trust")) {
                 if (controller_allow_pid_path(alert.pid_path) == 0) {
                     controller_continue_process(alert.pid);
 
@@ -103,7 +103,7 @@ int main(void)
                 alert.pending = false;
             }
 
-            if (GuiButton((Rectangle){490, 340, 150, 45}, "Clear")) {
+            if (GuiButton((Rectangle){490, 340, 150, 45}, "Continue")) {
                 controller_clear_alert();
 
                 snprintf(status, sizeof(status),
