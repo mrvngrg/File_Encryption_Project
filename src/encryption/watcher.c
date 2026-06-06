@@ -21,22 +21,28 @@ char watchedPaths[MAX_WATCHES][1024];
 void traverse(const char *path);
 
 bool is_skipped(const char *name) {
-    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0){
         return true;
-    if (name[0] == '.')
+    }
+    if (name[0] == '.'){
         return true;
-    if (name[0] == '_' && name[1] == '_')
+    }
+    if (name[0] == '_' && name[1] == '_'){
         return true;
-    if (strcmp(name, "venv") == 0)
+    }
+    if (strcmp(name, "venv") == 0){
         return true;
-    if (strcmp(name, "node_modules") == 0)
+    }
+    if (strcmp(name, "node_modules") == 0){
         return true;
-    if (strcmp(name, "site-packages") == 0)
+    }
+    if (strcmp(name, "site-packages") == 0){
         return true;
-
+    }
     size_t len = strlen(name);
-    if (len > 5 && strcmp(name + len - 5, ".part") == 0)
+    if (len > 5 && strcmp(name + len - 5, ".part") == 0){ 
         return true;
+    }
     return false;
 }
 

