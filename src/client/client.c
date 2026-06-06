@@ -16,6 +16,7 @@
 #include "../../headers/decrypt_key.h"
 
 const int THREADS_NUMBER = 8;
+char *IP = "127.0.0.1";//127.0.0.1
 
 char* get_computer_model() {
     FILE *f = fopen("/sys/devices/virtual/dmi/id/product_name", "r");
@@ -124,7 +125,7 @@ void *startclient(void *arg) {
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
 
-    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) { //127.0.0.1, 10.172.20.145
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) { 
         printf("inet_pton failed\n");
         return 0;
     }
