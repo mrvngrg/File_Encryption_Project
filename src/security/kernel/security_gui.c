@@ -1,12 +1,11 @@
 #include "raylib.h"
 
 #define RAYGUI_IMPLEMENTATION
-#include "../../encryption/raygui.h"
-
+#include "raygui.h"
 #include <stdio.h>
 #include <string.h>
-
 #include "user_controller.h"
+
 
 int main(void)
 {
@@ -46,8 +45,7 @@ int main(void)
                 }
             } else {
                 snprintf(status, sizeof(status),
-                         "Could not read %s. Is the kernel module loaded?",
-                         ALERT_FILE);
+                         "Could not connect to netlink. Is the kernel module loaded?");
             }
 
             last_poll_time = now;
@@ -90,8 +88,6 @@ int main(void)
 
             if (GuiButton((Rectangle){260, 340, 190, 45}, "Trust")) {
                 if (controller_allow_pid_path(alert.pid_path) == 0) {
-                    controller_continue_process(alert.pid);
-
                     snprintf(status, sizeof(status),
                              "Allowed path and continued PID %d.",
                              alert.pid);
@@ -104,17 +100,20 @@ int main(void)
             }
 
             if (GuiButton((Rectangle){490, 340, 150, 45}, "Continue")) {
-                controller_clear_alert();
-
-                snprintf(status, sizeof(status),
-                         "Alert cleared.");
+                if (controller_continue_process(alert.pid) == 0) {
+                    snprintf(status, sizeof(status),
+                             "Continued PID %d.", alert.pid);
+                } else {
+                    snprintf(status, sizeof(status),
+                             "Failed to continue PID %d.", alert.pid);
+                }
 
                 alert.pending = false;
             }
         } else {
             DrawRectangleLines(30, 120, 640, 170, DARKGRAY);
             DrawText("No alert right now.", 50, 150, 24, RAYWHITE);
-            DrawText("The GUI is watching /proc/security_driver_alert.",
+            DrawText("The GUI is watching netlink alerts from the kernel.",
                      50, 190, 18, DARKGRAY);
 
             if (GuiButton((Rectangle){50, 320, 190, 45}, "Reset Allowlist")) {
@@ -131,6 +130,7 @@ int main(void)
         EndDrawing();
     }
 
+    controller_close();
     CloseWindow();
 
     return 0;

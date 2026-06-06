@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <limits.h>
 
-#define ALERT_FILE "/proc/security_driver_alert"
+#define NETLINK_SECURITY 31
 
 typedef struct SecurityAlert {
     bool pending;
@@ -24,5 +24,7 @@ int controller_allow_pid_path(const char *pid_path);
 int controller_continue_process(int pid);
 
 int controller_reset_lists(void);
+
+void controller_close(void);
 
 #endif

@@ -8,8 +8,8 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/timekeeping.h>
-#include <linux/proc_fs.h>
-#include <linux/uaccess.h>
+#include <linux/netlink.h>
+#include <net/sock.h>
 #include <linux/pid.h>
 #include <linux/signal.h>
 #include <linux/limits.h>
@@ -26,13 +26,16 @@ MODULE_DESCRIPTION("Kernel file operation detector with user-space alert control
 #define MAX_ALLOWED_PIDS 256
 #define MAX_ALLOWED_PID_PATHS 64
 
-#define PROC_NAME "security_driver_alert"
+#define NETLINK_SECURITY 31
 
 static char allowed_PID_paths[MAX_ALLOWED_PID_PATHS][PATH_MAX];
 static int allowed_PID_path_count = 0;
 static DEFINE_SPINLOCK(allowed_PID_path_lock);
 
 static char alert_PID_path[PATH_MAX];
+
+static struct sock *nl_sk;
+static u32 user_portid;
 
 static pid_t allowed_pids[MAX_ALLOWED_PIDS];
 static int allowed_pid_count = 0;
@@ -202,142 +205,68 @@ static void save_alert(pid_t pid, const char *proc_name, const char *PID_path)
     spin_unlock_irqrestore(&alert_lock, flags);
 }
 
-static void stop_process(pid_t pid, const char *proc_name)
+static int signal_process(pid_t pid, int sig, const char *reason)
 {
     struct task_struct *task;
+    int ret = -ESRCH;
 
     rcu_read_lock();
 
     task = pid_task(find_vpid(pid), PIDTYPE_PID);
     if (task) {
-        pr_warn("security_driver: sending SIGSTOP to PID=%d PROC=%s\n",
-                pid, proc_name);
-        send_sig(SIGSTOP, task, 0);
+        pr_info("security_driver: sending signal %d to PID=%d (%s)\n",
+                sig, pid, reason ? reason : "no reason");
+        ret = send_sig(sig, task, 0);
     } else {
-        pr_warn("security_driver: could not find PID=%d PROC=%s\n",
-                pid, proc_name);
+        pr_warn("security_driver: could not find PID=%d for signal %d\n",
+                pid, sig);
     }
 
     rcu_read_unlock();
+    return ret;
 }
 
-static ssize_t alert_read(struct file *file, char __user *buf,
-                          size_t count, loff_t *ppos)
+static void stop_process(pid_t pid, const char *proc_name)
 {
-    char message[PATH_MAX + 128];
-    int len;
-    unsigned long flags;
-    pid_t pid_copy;
-    char proc_copy[TASK_COMM_LEN];
-    char PID_path_copy[PATH_MAX];
-    bool pending_copy;
-
-    if (*ppos > 0)
-        return 0;
-
-    spin_lock_irqsave(&alert_lock, flags);
-
-    pid_copy = alert_pid;
-    strscpy(proc_copy, alert_proc, sizeof(proc_copy));
-    strscpy(PID_path_copy, alert_PID_path, sizeof(PID_path_copy));
-    pending_copy = alert_pending;
-
-    spin_unlock_irqrestore(&alert_lock, flags);
-
-    if (!pending_copy) {
-        len = scnprintf(message, sizeof(message), "NO_ALERT\n");
-    } else {
-        len = scnprintf(message, sizeof(message),
-                        "ALERT PID=%d PROC=%s PID_PATH=%s\n",
-                        pid_copy, proc_copy, PID_path_copy);
-    }
-
-    return simple_read_from_buffer(buf, count, ppos, message, len);
+    signal_process(pid, SIGSTOP, proc_name);
 }
 
-static ssize_t alert_write(struct file *file, const char __user *buf,
-                           size_t count, loff_t *ppos)
+static void clear_current_alert(void)
 {
-    char cmd[PATH_MAX + 32];
     unsigned long flags;
-    size_t len;
 
-    len = min(count, sizeof(cmd) - 1);
-
-    if (copy_from_user(cmd, buf, len))
-        return -EFAULT;
-
-    cmd[len] = '\0';
-
-    if (strncmp(cmd, "CLEAR", 5) == 0) {
     spin_lock_irqsave(&alert_lock, flags);
     alert_pid = -1;
     alert_proc[0] = '\0';
     alert_PID_path[0] = '\0';
     alert_pending = false;
     spin_unlock_irqrestore(&alert_lock, flags);
-    }
+}
 
-    else if (strncmp(cmd, "RESET_LIST", 10) == 0) {
-        spin_lock_irqsave(&allowed_pid_lock, flags);
-        allowed_pid_count = 0;
-        spin_unlock_irqrestore(&allowed_pid_lock, flags);
+static void reset_allowlists(void)
+{
+    unsigned long flags;
 
-        spin_lock_irqsave(&allowed_PID_path_lock, flags);
-        allowed_PID_path_count = 0;
-        spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
+    spin_lock_irqsave(&allowed_pid_lock, flags);
+    allowed_pid_count = 0;
+    spin_unlock_irqrestore(&allowed_pid_lock, flags);
 
-        spin_lock_irqsave(&alert_lock, flags);
-        alert_pid = -1;
-        alert_proc[0] = '\0';
-        alert_PID_path[0] = '\0';
-        alert_pending = false;
-        spin_unlock_irqrestore(&alert_lock, flags);
+    spin_lock_irqsave(&allowed_PID_path_lock, flags);
+    allowed_PID_path_count = 0;
+    spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
 
-        pr_info("security_driver: allowlists RESET by user space.\n");
-    }
-    
-    else if (strncmp(cmd, "ALLOW_PID ", 10) == 0) {
-    pid_t pid;
+    clear_current_alert();
+    pr_info("security_driver: allowlists RESET by user space.\n");
+}
+
+static void allow_pid_path(const char *PID_path)
+{
+    unsigned long flags;
     int i;
     bool already_saved = false;
 
-    if (kstrtoint(cmd + 10, 10, &pid) == 0 && pid > 0) {
-        spin_lock_irqsave(&allowed_pid_lock, flags);
-
-        for (i = 0; i < allowed_pid_count; i++) {
-            if (allowed_pids[i] == pid) {
-                already_saved = true;
-                break;
-            }
-        }
-
-        if (!already_saved && allowed_pid_count < MAX_ALLOWED_PIDS) {
-            allowed_pids[allowed_pid_count] = pid;
-            allowed_pid_count++;
-
-            pr_info("security_driver: allowed PID=%d\n", pid);
-        }
-
-        spin_unlock_irqrestore(&allowed_pid_lock, flags);
-    }
-
-    spin_lock_irqsave(&alert_lock, flags);
-    alert_pid = -1;
-    alert_proc[0] = '\0';
-    alert_PID_path[0] = '\0';
-    alert_pending = false;
-    spin_unlock_irqrestore(&alert_lock, flags);
-    }
-
-    else if (strncmp(cmd, "ALLOW_PID_PATH ", 15) == 0) {
-        char *PID_path = cmd + 15;
-        char *nl = strchr(PID_path, '\n');
-        int i;
-        bool already_saved = false;
-
-    if (nl)
-        *nl = '\0';
+    if (!PID_path || PID_path[0] == '\0')
+        return;
 
     spin_lock_irqsave(&allowed_PID_path_lock, flags);
 
@@ -351,27 +280,146 @@ static ssize_t alert_write(struct file *file, const char __user *buf,
     if (!already_saved && allowed_PID_path_count < MAX_ALLOWED_PID_PATHS) {
         strscpy(allowed_PID_paths[allowed_PID_path_count], PID_path, PATH_MAX);
         allowed_PID_path_count++;
-
         pr_info("security_driver: allowed PID_path=%s\n", PID_path);
     }
 
     spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
-
-    spin_lock_irqsave(&alert_lock, flags);
-    alert_pid = -1;
-    alert_proc[0] = '\0';
-    alert_PID_path[0] = '\0';
-    alert_pending = false;
-    spin_unlock_irqrestore(&alert_lock, flags);
-    }
-
-    return count;
 }
 
-static const struct proc_ops alert_proc_ops = {
-    .proc_read = alert_read,
-    .proc_write = alert_write,
-};
+static void build_alert_message(char *message, size_t size)
+{
+    unsigned long flags;
+    pid_t pid_copy;
+    char proc_copy[TASK_COMM_LEN];
+    char PID_path_copy[PATH_MAX];
+    bool pending_copy;
+
+    spin_lock_irqsave(&alert_lock, flags);
+    pid_copy = alert_pid;
+    strscpy(proc_copy, alert_proc, sizeof(proc_copy));
+    strscpy(PID_path_copy, alert_PID_path, sizeof(PID_path_copy));
+    pending_copy = alert_pending;
+    spin_unlock_irqrestore(&alert_lock, flags);
+
+    if (!pending_copy) {
+        scnprintf(message, size, "NO_ALERT");
+    } else {
+        scnprintf(message, size, "ALERT PID=%d PROC=%s PID_PATH=%s",
+                  pid_copy, proc_copy, PID_path_copy);
+    }
+}
+
+static int nl_send_to_user(const char *message)
+{
+    struct sk_buff *skb;
+    struct nlmsghdr *nlh;
+    int msg_size;
+
+    if (!nl_sk || user_portid == 0 || !message)
+        return -ENODEV;
+
+    msg_size = strlen(message) + 1;
+
+    skb = nlmsg_new(msg_size, GFP_ATOMIC);
+    if (!skb)
+        return -ENOMEM;
+
+    nlh = nlmsg_put(skb, 0, 0, NLMSG_DONE, msg_size, 0);
+    if (!nlh) {
+        kfree_skb(skb);
+        return -ENOMEM;
+    }
+
+    memcpy(nlmsg_data(nlh), message, msg_size);
+
+    return nlmsg_unicast(nl_sk, skb, user_portid);
+}
+
+static void nl_send_current_alert(void)
+{
+    char message[PATH_MAX + 128];
+
+    build_alert_message(message, sizeof(message));
+    nl_send_to_user(message);
+}
+
+static void nl_recv_msg(struct sk_buff *skb)
+{
+    struct nlmsghdr *nlh;
+    char *cmd;
+    pid_t pid;
+    char *PID_path;
+    char *nl;
+
+    if (!skb)
+        return;
+
+    nlh = nlmsg_hdr(skb);
+    if (!nlh || nlmsg_len(nlh) <= 0)
+        return;
+
+    user_portid = NETLINK_CB(skb).portid;
+    cmd = nlmsg_data(nlh);
+
+    if (strncmp(cmd, "REGISTER", 8) == 0) {
+        pr_info("security_driver: user controller registered portid=%u\n",
+                user_portid);
+        nl_send_current_alert();
+    }
+
+    else if (strncmp(cmd, "GET_ALERT", 9) == 0) {
+        nl_send_current_alert();
+    }
+
+    else if (strncmp(cmd, "CLEAR", 5) == 0) {
+        clear_current_alert();
+        nl_send_current_alert();
+    }
+
+    else if (strncmp(cmd, "RESET_LIST", 10) == 0) {
+        reset_allowlists();
+        nl_send_current_alert();
+    }
+
+    else if (strncmp(cmd, "KILL ", 5) == 0) {
+        if (kstrtoint(cmd + 5, 10, &pid) == 0 && pid > 0)
+            signal_process(pid, SIGKILL, "user kill");
+
+        clear_current_alert();
+        nl_send_current_alert();
+    }
+
+    else if (strncmp(cmd, "CONTINUE ", 9) == 0) {
+        if (kstrtoint(cmd + 9, 10, &pid) == 0 && pid > 0)
+            signal_process(pid, SIGCONT, "user continue");
+
+        clear_current_alert();
+        nl_send_current_alert();
+    }
+
+    else if (strncmp(cmd, "ALLOW_PID_PATH ", 15) == 0) {
+        PID_path = cmd + 15;
+        nl = strchr(PID_path, '\n');
+        if (nl)
+            *nl = '\0';
+
+        allow_pid_path(PID_path);
+
+        {
+            unsigned long flags;
+
+            spin_lock_irqsave(&alert_lock, flags);
+            pid = alert_pid;
+            spin_unlock_irqrestore(&alert_lock, flags);
+        }
+
+        if (pid > 0)
+            signal_process(pid, SIGCONT, "trusted path");
+
+        clear_current_alert();
+        nl_send_current_alert();
+    }
+}
 
 static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
@@ -449,31 +497,50 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
     if (suspicious) {
         save_alert(suspicious_pid, suspicious_proc, PID_path);
         stop_process(suspicious_pid, suspicious_proc);
+        nl_send_current_alert();
     }
     return 0;
 }
 
 static struct kprobe kp = { .symbol_name = "vfs_write", .pre_handler = handler_pre, };
 
-static int __init mod_init(void) {
+static int __init mod_init(void)
+{
+    struct netlink_kernel_cfg cfg = {
+        .input = nl_recv_msg,
+    };
     int ret;
+
     memset(pid_list, 0, sizeof(pid_list));
     alert_proc[0] = '\0';
+    alert_PID_path[0] = '\0';
+    user_portid = 0;
 
-    if (!proc_create(PROC_NAME, 0666, NULL, &alert_proc_ops)) return -ENOMEM;
+    nl_sk = netlink_kernel_create(&init_net, NETLINK_SECURITY, &cfg);
+    if (!nl_sk) {
+        pr_err("security_driver: failed to create netlink socket\n");
+        return -ENOMEM;
+    }
 
     ret = register_kprobe(&kp);
     if (ret < 0) {
-        remove_proc_entry(PROC_NAME, NULL);
+        netlink_kernel_release(nl_sk);
+        nl_sk = NULL;
         return ret;
     }
-    pr_info("security_driver: loaded successfully\n");
+
+    pr_info("security_driver: loaded successfully with netlink protocol %d\n",
+            NETLINK_SECURITY);
     return 0;
 }
 
-static void __exit mod_exit(void) {
+static void __exit mod_exit(void)
+{
     unregister_kprobe(&kp);
-    remove_proc_entry(PROC_NAME, NULL);
+
+    if (nl_sk)
+        netlink_kernel_release(nl_sk);
+
     pr_info("security_driver: unloaded\n");
 }
 module_init(mod_init);
