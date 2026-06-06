@@ -51,8 +51,7 @@ struct pid_activity {
     ktime_t timestamp;
 };
 
-static bool PID_path_is_allowed(const char *PID_path)
-{
+static bool PID_path_is_allowed(const char *PID_path) {
     int i;
 
     for (i = 0; i < allowed_PID_path_count; i++) {
@@ -63,8 +62,7 @@ static bool PID_path_is_allowed(const char *PID_path)
     return false;
 }
 
-static int get_current_PID_path(char *out, size_t out_size)
-{
+static int get_current_PID_path(char *out, size_t out_size) {
     struct mm_struct *mm;
     struct file *exe_file;
     char *buf;
@@ -106,16 +104,12 @@ static int get_current_PID_path(char *out, size_t out_size)
 static struct pid_activity pid_list[MAX_PIDS];
 static DEFINE_SPINLOCK(pid_lock);
 
-/* One-alert storage for communication with user space */
 static DEFINE_SPINLOCK(alert_lock);
 static pid_t alert_pid = -1;
 static char alert_proc[TASK_COMM_LEN];
 static bool alert_pending = false;
 
-//static struct proc_dir_entry *alert_proc_entry;
-
-static bool pid_is_allowed(pid_t pid)
-{
+static bool pid_is_allowed(pid_t pid) {
     int i;
 
     for (i = 0; i < allowed_pid_count; i++) {
@@ -126,11 +120,7 @@ static bool pid_is_allowed(pid_t pid)
     return false;
 }
 
-/*
-* 
-*/
-static struct pid_activity *get_or_create(pid_t pid)
-{
+static struct pid_activity *get_or_create(pid_t pid) {
     int i;
 
     for (i = 0; i < MAX_PIDS; i++) {
@@ -151,8 +141,7 @@ static struct pid_activity *get_or_create(pid_t pid)
     return NULL;
 }
 
-static void count_unique_dir(struct pid_activity *p, const char *path)
-{
+static void count_unique_dir(struct pid_activity *p, const char *path) {
     char dir[256];
     char *last_slash;
     int i;
@@ -175,8 +164,7 @@ static void count_unique_dir(struct pid_activity *p, const char *path)
     }
 }
 
-static void count_unique_file(struct pid_activity *p, const char *path)
-{
+static void count_unique_file(struct pid_activity *p, const char *path) {
     int i;
 
     for (i = 0; i < p->unique_file_count; i++) {
@@ -191,8 +179,7 @@ static void count_unique_file(struct pid_activity *p, const char *path)
     }
 }
 
-static void save_alert(pid_t pid, const char *proc_name, const char *PID_path)
-{
+static void save_alert(pid_t pid, const char *proc_name, const char *PID_path) {
     unsigned long flags;
 
     spin_lock_irqsave(&alert_lock, flags);
@@ -205,8 +192,7 @@ static void save_alert(pid_t pid, const char *proc_name, const char *PID_path)
     spin_unlock_irqrestore(&alert_lock, flags);
 }
 
-static int signal_process(pid_t pid, int sig, const char *reason)
-{
+static int signal_process(pid_t pid, int sig, const char *reason) {
     struct task_struct *task;
     int ret = -ESRCH;
 
@@ -226,13 +212,11 @@ static int signal_process(pid_t pid, int sig, const char *reason)
     return ret;
 }
 
-static void stop_process(pid_t pid, const char *proc_name)
-{
+static void stop_process(pid_t pid, const char *proc_name){
     signal_process(pid, SIGSTOP, proc_name);
 }
 
-static void clear_current_alert(void)
-{
+static void clear_current_alert(void) {
     unsigned long flags;
 
     spin_lock_irqsave(&alert_lock, flags);
@@ -243,8 +227,7 @@ static void clear_current_alert(void)
     spin_unlock_irqrestore(&alert_lock, flags);
 }
 
-static void reset_allowlists(void)
-{
+static void reset_allowlists(void) {
     unsigned long flags;
 
     spin_lock_irqsave(&allowed_pid_lock, flags);
@@ -259,8 +242,7 @@ static void reset_allowlists(void)
     pr_info("security_driver: allowlists RESET by user space.\n");
 }
 
-static void allow_pid_path(const char *PID_path)
-{
+static void allow_pid_path(const char *PID_path) {
     unsigned long flags;
     int i;
     bool already_saved = false;
@@ -286,8 +268,7 @@ static void allow_pid_path(const char *PID_path)
     spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
 }
 
-static void build_alert_message(char *message, size_t size)
-{
+static void build_alert_message(char *message, size_t size) {
     unsigned long flags;
     pid_t pid_copy;
     char proc_copy[TASK_COMM_LEN];
@@ -309,8 +290,7 @@ static void build_alert_message(char *message, size_t size)
     }
 }
 
-static int nl_send_to_user(const char *message)
-{
+static int nl_send_to_user(const char *message) {
     struct sk_buff *skb;
     struct nlmsghdr *nlh;
     int msg_size;
@@ -335,16 +315,14 @@ static int nl_send_to_user(const char *message)
     return nlmsg_unicast(nl_sk, skb, user_portid);
 }
 
-static void nl_send_current_alert(void)
-{
+static void nl_send_current_alert(void) {
     char message[PATH_MAX + 128];
 
     build_alert_message(message, sizeof(message));
     nl_send_to_user(message);
 }
 
-static void nl_recv_msg(struct sk_buff *skb)
-{
+static void nl_recv_msg(struct sk_buff *skb) {
     struct nlmsghdr *nlh;
     char *cmd;
     pid_t pid;
@@ -421,8 +399,7 @@ static void nl_recv_msg(struct sk_buff *skb)
     }
 }
 
-static int handler_pre(struct kprobe *p, struct pt_regs *regs)
-{
+static int handler_pre(struct kprobe *p, struct pt_regs *regs) {
 #if defined(CONFIG_X86_64)
     struct file *file = (struct file *)regs->di;
 #else
@@ -484,7 +461,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
             count_unique_dir(entry, path); count_unique_file(entry, path);
 
             if (entry->unique_dir_count >= UNIQUE_DIR_LIMIT && entry->unique_file_count >= UNIQUE_FILE_LIMIT) {
-                entry->active = false; // Prevent spam
+                entry->active = false;
                 suspicious = true;
                 suspicious_pid = pid;
                 strscpy(suspicious_proc, proc_name, sizeof(suspicious_proc));
@@ -504,8 +481,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs)
 
 static struct kprobe kp = { .symbol_name = "vfs_write", .pre_handler = handler_pre, };
 
-static int __init mod_init(void)
-{
+static int __init mod_init(void) {
     struct netlink_kernel_cfg cfg = {
         .input = nl_recv_msg,
     };
@@ -534,8 +510,7 @@ static int __init mod_init(void)
     return 0;
 }
 
-static void __exit mod_exit(void)
-{
+static void __exit mod_exit(void) {
     unregister_kprobe(&kp);
 
     if (nl_sk)
