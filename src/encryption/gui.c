@@ -9,7 +9,7 @@
 
 
 int display_gui(time_t start_time) {
-    InitWindow(450, 600, "test");
+    InitWindow(450, 600, "ENCRYPTED");
     GuiLoadStyleDefault();
     GuiSetStyle(DEFAULT, TEXT_SIZE, 24); 
     SetTargetFPS(60);
