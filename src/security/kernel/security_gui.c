@@ -19,7 +19,7 @@ int main(void)
 
     bool alert_was_pending = false;
 
-    InitWindow(screen_width, screen_height, "Security Controller");
+    InitWindow(screen_width, screen_height, "Security");
     SetTargetFPS(60);
 
     GuiLoadStyleDefault();
@@ -65,7 +65,7 @@ int main(void)
         BeginDrawing();
         ClearBackground(BLACK);
 
-        DrawText("Security Controller", 30, 25, 28, RAYWHITE);
+        DrawText("Security", 30, 25, 28, RAYWHITE);
         DrawText(status, 30, 70, 18, DARKGRAY);
 
         if (alert.pending) {
