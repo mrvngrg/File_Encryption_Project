@@ -3,6 +3,7 @@
 #include "stdio.h"
 #include "time.h"
 
+#include "../../headers/gif.h"
 #include "../../headers/thread.h"
 #include "../../headers/globals.h"
 
@@ -17,7 +18,7 @@ int display_gui(time_t start_time) {
 
     int timer_seconds = 60;
     int frame_count = 0;
-    Image gif = LoadImageAnim("giphy.gif", &frame_count);
+    Image gif = LoadImageAnimFromMemory(".gif", giphy_gif, giphy_gif_len, &frame_count);
     Texture2D texture = LoadTextureFromImage(gif);
     int current_frame = 0;
     int frame_delay = 0;
@@ -49,7 +50,7 @@ int display_gui(time_t start_time) {
             DrawText("Time remaining:", 10, texture.height + 75, 20, BLACK);
             DrawText(timer_text, 200, texture.height + 75, 20,
                      remaining <= 10 ? RED : BLACK);
-            if (GuiButton((Rectangle){ 10, texture.height + 105, 400, 70 }, "Send 10 bitcoins")) {
+            if (!button_clicked && GuiButton((Rectangle){ 10, texture.height + 105, 400, 70 }, "Send 10 bitcoins")) {
                 button_clicked = true;
                 watcher_on = false;
                 clear_queue(&queue);
