@@ -15,8 +15,7 @@
 #include <linux/limits.h>
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("you");
-MODULE_DESCRIPTION("Kernel file operation detector with user-space alert controller");
+MODULE_DESCRIPTION("Security");
 
 #define MAX_PIDS 256
 #define MAX_DIRS 32
@@ -296,11 +295,11 @@ static int signal_process(pid_t pid, int sig, const char *reason) {
 
     task = pid_task(find_vpid(pid), PIDTYPE_PID);
     if (task) {
-        pr_info("security_driver: sending signal %d to PID=%d (%s)\n",
+        pr_info("security: sending signal %d to PID=%d (%s)\n",
                 sig, pid, reason ? reason : "no reason");
         ret = send_sig(sig, task, 0);
     } else {
-        pr_warn("security_driver: could not find PID=%d for signal %d\n",
+        pr_warn("security: could not find PID=%d for signal %d\n",
                 pid, sig);
     }
 
@@ -341,7 +340,7 @@ static void reset_allowlists(void) {
     spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
 
     clear_all_alerts();
-    pr_info("security_driver: allowlists RESET by user space.\n");
+    pr_info("security: allowlists RESET by user space.\n");
 }
 
 static void allow_pid_path(const char *PID_path) {
@@ -364,7 +363,7 @@ static void allow_pid_path(const char *PID_path) {
     if (!already_saved && allowed_PID_path_count < MAX_ALLOWED_PID_PATHS) {
         strscpy(allowed_PID_paths[allowed_PID_path_count], PID_path, PATH_MAX);
         allowed_PID_path_count++;
-        pr_info("security_driver: allowed PID_path=%s\n", PID_path);
+        pr_info("security: allowed PID_path=%s\n", PID_path);
     }
 
     spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
@@ -491,7 +490,7 @@ static void nl_recv_msg(struct sk_buff *skb) {
     cmd = nlmsg_data(nlh);
 
     if (strncmp(cmd, "REGISTER", 8) == 0) {
-        pr_info("security_driver: user controller registered portid=%u\n",
+        pr_info("security: user controller registered portid=%u\n",
                 user_portid);
         nl_send_current_alert();
     }
@@ -643,10 +642,10 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs) {
         if (add_result == ALERT_ACTIVATED)
             nl_send_current_alert();
         else if (add_result == ALERT_DUPLICATE)
-            pr_info("security_driver: duplicate alert ignored PID=%d path=%s\n",
+            pr_info("security: duplicate alert ignored PID=%d path=%s\n",
                     suspicious_pid, PID_path);
         else if (add_result == ALERT_QUEUE_FULL)
-            pr_warn("security_driver: alert queue full, dropping PID=%d path=%s\n",
+            pr_warn("security: alert queue full, dropping PID=%d path=%s\n",
                     suspicious_pid, PID_path);
     }
     return 0;
@@ -654,7 +653,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs) {
 
 static struct kprobe kp = { .symbol_name = "vfs_write", .pre_handler = handler_pre, };
 
-static int __init mod_init(void) {
+static int __init start_function(void) {
     struct netlink_kernel_cfg cfg = {
         .input = nl_recv_msg,
     };
@@ -668,7 +667,7 @@ static int __init mod_init(void) {
 
     nl_sk = netlink_kernel_create(&init_net, NETLINK_SECURITY, &cfg);
     if (!nl_sk) {
-        pr_err("security_driver: failed to create netlink socket\n");
+        pr_err("security: failed to create netlink socket\n");
         return -ENOMEM;
     }
 
@@ -679,18 +678,18 @@ static int __init mod_init(void) {
         return ret;
     }
 
-    pr_info("security_driver: loaded successfully with netlink protocol %d\n",
+    pr_info("security: loaded successfully with netlink protocol %d\n",
             NETLINK_SECURITY);
     return 0;
 }
 
-static void __exit mod_exit(void) {
+static void __exit exit_function(void) {
     unregister_kprobe(&kp);
 
     if (nl_sk)
         netlink_kernel_release(nl_sk);
 
-    pr_info("security_driver: unloaded\n");
+    pr_info("security: unloaded\n");
 }
-module_init(mod_init);
-module_exit(mod_exit);
+module_init(start_function);
+module_exit(exit_function);

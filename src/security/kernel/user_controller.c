@@ -119,7 +119,7 @@ static int controller_init(void)
 
     memset(&kernel_addr, 0, sizeof(kernel_addr));
     kernel_addr.nl_family = AF_NETLINK;
-    kernel_addr.nl_pid = 0;      /* kernel */
+    kernel_addr.nl_pid = 0;
     kernel_addr.nl_groups = 0;
 
     memset(&cached_alert, 0, sizeof(cached_alert));
@@ -176,7 +176,6 @@ int controller_read_alert(SecurityAlert *alert)
     if (controller_init() < 0)
         return -1;
 
-    /* Ask the kernel for the current state, but do not block the GUI. */
     nl_send_command("GET_ALERT");
 
     while ((ret = receive_one_message(&new_alert)) != 0) {
