@@ -43,7 +43,7 @@ int display_gui(time_t start_time) {
 
         BeginDrawing();
             ClearBackground((Color){ 255, 0, 0, 255 });
-            DrawTexture(texture, 10, 10, WHITE);
+            DrawTexture(texture, 35, 10, WHITE);
             DrawText("Your Files are Encrypted, if you want", 10, texture.height + 20, 20, BLACK);
             DrawText("them back you must click on the button", 10, texture.height + 45, 20, BLACK);
             DrawText("Time remaining:", 10, texture.height + 75, 20, BLACK);
