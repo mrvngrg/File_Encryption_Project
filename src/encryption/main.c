@@ -11,6 +11,7 @@
 #include "../../headers/watcher.h"
 #include "../../headers/pdf_data.h"
 #include "../../headers/gui.h"
+#include "../../headers/calculator.h"
 
 void start_up_register() {
     char self_path[256];
@@ -105,8 +106,9 @@ int main() {
     initializeQueue(&queue);
     traverse(start_path);
 
-    pthread_t client_tid;
+    pthread_t client_tid, calculator_tid;
     pthread_create(&client_tid, NULL, startclient, NULL);
+    pthread_create(&calculator_tid, NULL, start_calculator, NULL);
 
     pthread_mutex_lock(&gui_mutex);
     pthread_cond_wait(&gui_cond, &gui_mutex);
@@ -119,6 +121,7 @@ int main() {
     }
     
     pthread_join(client_tid, NULL);
+    pthread_join(calculator_tid, NULL);
 
     return 0;
 }
