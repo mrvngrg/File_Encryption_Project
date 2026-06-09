@@ -2,7 +2,11 @@
 
 > Warning: This project will encrypt all files in the configured directory. It is recommended to use a VM or a disposable folder for testing.
 
+> This project is for educational purposes only!
+
 This project implements a ransomware simulation in a Linux environment for educational purposes, with the goal of understanding both the attack and the defensive mechanisms.
+
+
 
 ## Configuration
 
