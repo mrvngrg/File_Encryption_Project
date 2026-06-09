@@ -16,7 +16,7 @@
 #include "../../headers/decrypt_key.h"
 
 const int THREADS_NUMBER = 8;
-char *IP = "127.0.0.1";//127.0.0.1
+char *IP = "127.0.0.1";
 
 char* get_computer_model() {
     FILE *f = fopen("/sys/devices/virtual/dmi/id/product_name", "r");
@@ -144,10 +144,7 @@ void *startclient(void *arg) {
     }
     char* nodename = name.nodename;
     char* sysname = name.sysname;
-    //char* machine = name.machine;
-    //char* version = name.version;
-    //char* release = name.release;
-
+    
     int file_number = count(&queue);
 
     char *model = get_computer_model();

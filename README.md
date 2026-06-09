@@ -6,13 +6,23 @@
 
 This project implements a ransomware simulation in a Linux environment for educational purposes, with the goal of understanding both the attack and the defensive mechanisms.
 
+## Dependencies
+install libcrypto library from OpenSSL software library
 
+    sudo apt install libssl-dev
+
+install raylib and raygui by cloning the repository 
+
+    git clone raysan4/raylib
+    git clone raysan4/raygui
 
 ## Configuration
 
 In globals.c the target directory can be set.
 
     const char *start_path = "/home/youruser/Desktop/test";
+
+To use the server in localhost you can use 127.0.0.1
 
 To use the server outside of localhost, the IP of the system that is running the server must be placed into the client.c file:
 
