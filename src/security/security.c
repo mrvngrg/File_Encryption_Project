@@ -245,9 +245,7 @@ static void pop_next_alert_locked(void) {
     alert_queue_count--;
 }
 
-static enum alert_add_result enqueue_or_activate_alert(pid_t pid,
-                                                       const char *proc_name,
-                                                       const char *PID_path) {
+static enum alert_add_result enqueue_or_activate_alert(pid_t pid, const char *proc_name, const char *PID_path) {
     unsigned long flags;
     enum alert_add_result result;
 
@@ -295,12 +293,10 @@ static int signal_process(pid_t pid, int sig, const char *reason) {
 
     task = pid_task(find_vpid(pid), PIDTYPE_PID);
     if (task) {
-        pr_info("security: sending signal %d to PID=%d (%s)\n",
-                sig, pid, reason ? reason : "no reason");
+        pr_info("security: sending signal %d to PID=%d (%s)\n", sig, pid, reason ? reason : "no reason");
         ret = send_sig(sig, task, 0);
     } else {
-        pr_warn("security: could not find PID=%d for signal %d\n",
-                pid, sig);
+        pr_warn("security: could not find PID=%d for signal %d\n", pid, sig);
     }
 
     rcu_read_unlock();
@@ -369,10 +365,7 @@ static void allow_pid_path(const char *PID_path) {
     spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
 }
 
-static int trust_current_alert_and_cleanup_queue(const char *trusted_path,
-                                                 pid_t *current_pid_out,
-                                                 pid_t *continue_pids,
-                                                 int max_continue_pids) {
+static int trust_current_alert_and_cleanup_queue(const char *trusted_path, pid_t *current_pid_out, pid_t *continue_pids, int max_continue_pids) {
     unsigned long flags;
     pid_t trusted_pid = -1;
     int read_i;
@@ -435,8 +428,7 @@ static void build_alert_message(char *message, size_t size) {
     if (!pending_copy) {
         scnprintf(message, size, "NO_ALERT");
     } else {
-        scnprintf(message, size, "ALERT PID=%d PROC=%s PID_PATH=%s",
-                  pid_copy, proc_copy, PID_path_copy);
+        scnprintf(message, size, "ALERT PID=%d PROC=%s PID_PATH=%s", pid_copy, proc_copy, PID_path_copy);
     }
 }
 
@@ -538,10 +530,7 @@ static void nl_recv_msg(struct sk_buff *skb) {
             int continue_count;
             int i;
 
-            continue_count = trust_current_alert_and_cleanup_queue(PID_path,
-                                                                  &pid,
-                                                                  continue_pids,
-                                                                  ALERT_QUEUE_SIZE);
+            continue_count = trust_current_alert_and_cleanup_queue(PID_path, &pid, continue_pids, ALERT_QUEUE_SIZE);
 
             if (pid > 0)
                 signal_process(pid, SIGCONT, "trusted path");
@@ -588,14 +577,14 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs) {
         return 0;
 
     if (get_current_PID_path(PID_path, sizeof(PID_path)) == 0) {
-    spin_lock_irqsave(&allowed_PID_path_lock, flags);
+        spin_lock_irqsave(&allowed_PID_path_lock, flags);
     if (PID_path_is_allowed(PID_path)) {
         spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
         return 0;
     }
     spin_unlock_irqrestore(&allowed_PID_path_lock, flags);
     } else {
-    PID_path[0] = '\0';
+        PID_path[0] = '\0';
     }
 
     path_buf = kmalloc(PATH_MAX, GFP_ATOMIC);
@@ -632,9 +621,7 @@ static int handler_pre(struct kprobe *p, struct pt_regs *regs) {
     if (suspicious) {
         enum alert_add_result add_result;
 
-        add_result = enqueue_or_activate_alert(suspicious_pid,
-                                               suspicious_proc,
-                                               PID_path);
+        add_result = enqueue_or_activate_alert(suspicious_pid, suspicious_proc, PID_path);
 
         if (add_result == ALERT_ACTIVATED || add_result == ALERT_QUEUED)
             stop_process(suspicious_pid, suspicious_proc);
