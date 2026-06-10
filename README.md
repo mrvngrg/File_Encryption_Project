@@ -65,13 +65,18 @@ Server commands:
 Run this application carrefully since one crash or problem can disturb the whole OS.
 
 To start the security component you first have to change directories
+
     cd src/security/
 now you compile
+
     make
 after that you do the follow instructions
+
     sudo insmod security.ko         # load the security module directly into the running OS kernel
     lsmod | grep security           # verify wether the security module is actively running
+
 now you can run it
     ./gui                           # start the user_controller and gui
 after usage don't forget to unload the security module from the OS kernel
+
     sudo rmmod security             # unload the security module in the running OS kernel
