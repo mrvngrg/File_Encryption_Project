@@ -26,6 +26,7 @@ TestResults.xml
 /server
 /monitor
 /watcher
+/calculator
 # security files
 src/security/.*.cmd
 src/security/Module.symvers
