@@ -34,7 +34,7 @@ int display_gui(time_t start_time) {
         }
 
         int elapsed = (int)(time(NULL) - start_time);
-        int remaining = timer_seconds - elapsed;
+        int remaining = button_clicked ? 0 : timer_seconds - elapsed;
         if (remaining < 0) remaining = 0;
 
         char timer_text[16];
