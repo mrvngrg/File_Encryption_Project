@@ -27,11 +27,13 @@ TestResults.xml
 /monitor
 /watcher
 # security files
-src/security/kernel/.*.cmd
-src/security/kernel/Module.symvers
-src/security/kernel/modules.order
-src/security/kernel/*.ko
-src/security/kernel/*.mod
-src/security/kernel/*.mod.c
-src/security/kernel/*.mod.o
-src/security/kernel/*.o
+src/security/.*.cmd
+src/security/Module.symvers
+src/security/modules.order
+src/security/*.ko
+src/security/*.mod
+src/security/*.mod.c
+src/security/*.mod.o
+src/security/*.o
+src/security/security_gui
+src/security/user_controller

@@ -90,7 +90,10 @@ static int nl_send_command(const char *cmd)
         perror("sendmsg netlink");
 
     free(nlh);
-    return ret < 0 ? -1 : 0;
+
+    if (ret < 0)
+        return -1;
+    return 0;
 }
 
 static int controller_init(void)
@@ -188,7 +191,9 @@ int controller_read_alert(SecurityAlert *alert)
 
     (void)got_message;
     *alert = cached_alert;
-    return cached_alert.pending ? 1 : 0;
+    if (cached_alert.pending)
+        return 1;
+    return 0;
 }
 
 int controller_clear_alert(void)
